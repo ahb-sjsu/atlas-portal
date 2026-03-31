@@ -132,6 +132,58 @@ def get_results():
 
 # ─── API endpoints ─────────────────────────────────────────────────
 
+def get_per_core():
+    """Get per-core utilization and which process is on each core."""
+    cores = {}
+    try:
+        # Per-core utilization from /proc/stat
+        with open("/proc/stat") as f:
+            for line in f:
+                if line.startswith("cpu") and line[3] != " ":
+                    parts = line.split()
+                    core_id = int(parts[0][3:])
+                    user, nice, system, idle = int(parts[1]), int(parts[2]), int(parts[3]), int(parts[4])
+                    total = user + nice + system + idle
+                    busy = user + nice + system
+                    cores[core_id] = {"util": round(100 * busy / max(total, 1)), "job": None}
+    except Exception:
+        pass
+
+    # Map processes to cores via taskset/affinity
+    try:
+        out = subprocess.check_output(
+            ["ps", "-eo", "pid,psr,comm,args", "--no-headers"],
+            text=True, timeout=5
+        )
+        for line in out.strip().split("\n"):
+            parts = line.split(None, 3)
+            if len(parts) >= 4:
+                pid, psr, comm, args = parts[0], int(parts[1]), parts[2], parts[3]
+                if "run_one.py" in args or "run_qwen" in args or "finetune" in args:
+                    # Extract dataset name
+                    name = comm
+                    if "run_one.py" in args:
+                        idx = args.find("run_one.py")
+                        rest = args[idx+11:].strip().split()
+                        if rest:
+                            name = rest[0]
+                    elif "run_qwen" in args:
+                        name = "Qwen-eval"
+                    elif "finetune" in args:
+                        name = "Qwen-train"
+                    if psr in cores:
+                        cores[psr]["job"] = name
+    except Exception:
+        pass
+
+    return cores
+
+
+@app.route("/api/cores")
+def api_cores():
+    return jsonify(get_per_core())
+
+
 @app.route("/api/status")
 def api_status():
     return jsonify({
@@ -205,9 +257,10 @@ TEMPLATE = """<!DOCTYPE html>
   <h1><span>ATLAS</span> Research Portal</h1>
   <div class="subtitle">HP Z840 — 2x Xeon E5-2690 v3 · 2x Quadro GV100 32GB · Theory Radar · ARC-AGI-2</div>
   <div class="header-links">
-    <a href="http://100.68.134.21:19999" target="_blank">Netdata Monitoring</a>
+    <a href="/map">Resource Map</a>
+    <a href="http://100.68.134.21:19999" target="_blank">Netdata</a>
     <a href="https://github.com/ahb-sjsu/theory-radar" target="_blank">Theory Radar</a>
-    <a href="https://github.com/ahb-sjsu/atlas-portal" target="_blank">Portal Source</a>
+    <a href="https://github.com/ahb-sjsu/atlas-portal" target="_blank">Source</a>
   </div>
 </div>
 
@@ -383,6 +436,200 @@ setInterval(refresh, 10000);
 </body>
 </html>
 """
+
+MAP_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Atlas — Resource Map</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 16px 24px; border-bottom: 1px solid #2d3748; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 300; letter-spacing: 2px; }
+  .header h1 span { color: #63b3ed; font-weight: 600; }
+  .header a { color: #63b3ed; text-decoration: none; font-size: 13px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; }
+  .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+  .sockets { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .socket { background: #1a202c; border-radius: 12px; padding: 16px; border: 1px solid #2d3748; }
+  .socket h3 { font-size: 12px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin-bottom: 12px; }
+  .socket .temp { float: right; font-size: 14px; font-weight: 600; }
+  .core-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .core { aspect-ratio: 1; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; transition: all 0.3s; cursor: default; position: relative; border: 1px solid transparent; }
+  .core .id { font-weight: 600; font-size: 10px; }
+  .core .job { font-size: 7px; color: #e2e8f0; text-align: center; margin-top: 2px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .core.idle { background: #1a202c; border-color: #2d3748; }
+  .core.low { background: #1c3a2a; border-color: #276749; }
+  .core.med { background: #3a3320; border-color: #975a16; }
+  .core.high { background: #3a1c1c; border-color: #c53030; }
+  .core.has-job { border-color: #63b3ed; box-shadow: 0 0 8px rgba(99,179,237,0.3); }
+  .gpus { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .gpu-card { background: #1a202c; border-radius: 12px; padding: 16px; border: 1px solid #2d3748; }
+  .gpu-card h3 { font-size: 12px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin-bottom: 8px; }
+  .gpu-visual { height: 80px; background: #0f1117; border-radius: 8px; position: relative; overflow: hidden; margin: 8px 0; }
+  .gpu-fill { height: 100%; transition: width 0.5s; position: absolute; left: 0; top: 0; }
+  .gpu-fill.util { background: linear-gradient(90deg, #2563eb44, #2563eb88); }
+  .gpu-fill.mem { background: linear-gradient(90deg, #48bb7844, #48bb7888); top: 50%; height: 50%; }
+  .gpu-label { position: absolute; padding: 4px 8px; font-size: 11px; color: #e2e8f0; z-index: 1; }
+  .gpu-label.top { top: 8px; left: 8px; }
+  .gpu-label.bot { bottom: 8px; left: 8px; }
+  .gpu-temp { position: absolute; top: 8px; right: 8px; font-size: 18px; font-weight: 600; z-index: 1; }
+  .gpu-jobs { margin-top: 8px; font-size: 11px; color: #a0aec0; }
+  .gpu-jobs span { background: #2d3748; padding: 2px 8px; border-radius: 4px; margin-right: 4px; }
+  .legend { display: flex; gap: 16px; justify-content: center; margin: 16px 0; font-size: 11px; color: #718096; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+  .refresh-bar { text-align: center; color: #4a5568; font-size: 10px; padding: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>ATLAS</span> Resource Map</h1>
+  <div>
+    <a href="/">Dashboard</a>
+    <a href="http://100.68.134.21:19999" target="_blank">Netdata</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#1a202c;border:1px solid #2d3748"></div> Idle</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1c3a2a;border:1px solid #276749"></div> Low (&lt;30%)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3a3320;border:1px solid #975a16"></div> Med (30-70%)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3a1c1c;border:1px solid #c53030"></div> High (&gt;70%)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1a202c;border:2px solid #63b3ed"></div> Has Job</div>
+  </div>
+
+  <div class="sockets">
+    <div class="socket">
+      <h3>Socket 0 — Xeon E5-2690 v3 <span class="temp" id="temp0">--°C</span></h3>
+      <div class="core-grid" id="socket0"></div>
+    </div>
+    <div class="socket">
+      <h3>Socket 1 — Xeon E5-2690 v3 <span class="temp" id="temp1">--°C</span></h3>
+      <div class="core-grid" id="socket1"></div>
+    </div>
+  </div>
+
+  <div class="gpus">
+    <div class="gpu-card">
+      <h3>GPU 0 — Quadro GV100 32GB</h3>
+      <div class="gpu-visual" id="gpu0-visual">
+        <div class="gpu-fill util" id="gpu0-util"></div>
+        <div class="gpu-fill mem" id="gpu0-mem"></div>
+        <span class="gpu-label top" id="gpu0-util-label">--% util</span>
+        <span class="gpu-label bot" id="gpu0-mem-label">-- MB</span>
+        <span class="gpu-temp" id="gpu0-temp">--°C</span>
+      </div>
+      <div class="gpu-jobs" id="gpu0-jobs"></div>
+    </div>
+    <div class="gpu-card">
+      <h3>GPU 1 — Quadro GV100 32GB</h3>
+      <div class="gpu-visual" id="gpu1-visual">
+        <div class="gpu-fill util" id="gpu1-util"></div>
+        <div class="gpu-fill mem" id="gpu1-mem"></div>
+        <span class="gpu-label top" id="gpu1-util-label">--% util</span>
+        <span class="gpu-label bot" id="gpu1-mem-label">-- MB</span>
+        <span class="gpu-temp" id="gpu1-temp">--°C</span>
+      </div>
+      <div class="gpu-jobs" id="gpu1-jobs"></div>
+    </div>
+  </div>
+
+  <div class="refresh-bar">Live — refreshes every 5 seconds</div>
+</div>
+
+<script>
+function coreClass(util, job) {
+  let cls = 'core';
+  if (util < 5) cls += ' idle';
+  else if (util < 30) cls += ' low';
+  else if (util < 70) cls += ' med';
+  else cls += ' high';
+  if (job) cls += ' has-job';
+  return cls;
+}
+
+function tempColor(t) {
+  if (t < 75) return '#48bb78';
+  if (t < 85) return '#ecc94b';
+  return '#fc8181';
+}
+
+async function refresh() {
+  try {
+    const [coreData, statusData] = await Promise.all([
+      (await fetch('/api/cores')).json(),
+      (await fetch('/api/status')).json(),
+    ]);
+
+    // CPU temps
+    const temps = statusData.cpu_temps;
+    for (const [pkg, temp] of Object.entries(temps)) {
+      const id = pkg.includes('0') ? 'temp0' : 'temp1';
+      const el = document.getElementById(id);
+      el.textContent = temp + '°C';
+      el.style.color = tempColor(temp);
+    }
+
+    // Cores: 0-11 = socket 0, 12-23 = socket 1 (physical)
+    // 24-35 = socket 0 HT, 36-47 = socket 1 HT
+    for (let socket = 0; socket < 2; socket++) {
+      const el = document.getElementById('socket' + socket);
+      let html = '';
+      for (let i = 0; i < 12; i++) {
+        const coreId = socket * 12 + i;
+        const c = coreData[coreId] || {util: 0, job: null};
+        const htId = coreId + 24;
+        const ht = coreData[htId] || {util: 0, job: null};
+        const util = Math.max(c.util, ht.util);
+        const job = c.job || ht.job;
+        html += '<div class="' + coreClass(util, job) + '" title="Core ' + coreId + (job ? ' — ' + job : '') + '">';
+        html += '<span class="id">' + coreId + '</span>';
+        if (job) html += '<span class="job">' + job + '</span>';
+        html += '</div>';
+      }
+      el.innerHTML = html;
+    }
+
+    // GPUs
+    for (const gpu of statusData.gpus) {
+      const i = gpu.index;
+      document.getElementById('gpu'+i+'-util').style.width = gpu.util + '%';
+      document.getElementById('gpu'+i+'-mem').style.width = Math.round(100*gpu.mem_used/gpu.mem_total) + '%';
+      document.getElementById('gpu'+i+'-util-label').textContent = gpu.util + '% utilization';
+      document.getElementById('gpu'+i+'-mem-label').textContent = gpu.mem_used + '/' + gpu.mem_total + ' MB';
+      const tempEl = document.getElementById('gpu'+i+'-temp');
+      tempEl.textContent = gpu.temp + '°C';
+      tempEl.style.color = tempColor(gpu.temp);
+    }
+
+    // GPU jobs (from sessions)
+    const sessions = statusData.sessions || [];
+    // Simple heuristic: even sessions -> GPU 0, odd -> GPU 1
+    const gpu0jobs = [], gpu1jobs = [];
+    sessions.forEach((s, idx) => {
+      if (idx % 2 === 0) gpu0jobs.push(s.name);
+      else gpu1jobs.push(s.name);
+    });
+
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
+"""
+
+@app.route("/map")
+def resource_map():
+    return render_template_string(MAP_TEMPLATE)
+
 
 @app.route("/")
 def index():
