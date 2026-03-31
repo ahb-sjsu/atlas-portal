@@ -17,10 +17,61 @@ import os
 import subprocess
 import time
 import glob
+import secrets
+import hashlib
+import functools
 from datetime import datetime
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request, Response
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.environ.get("PORTAL_SECRET", secrets.token_hex(32))
+
+# ─── Security ──────────────────────────────────────────────────────
+
+# Auth credentials (set via env vars or defaults for first run)
+PORTAL_USER = os.environ.get("PORTAL_USER", "atlas")
+PORTAL_PASS_HASH = hashlib.sha256(
+    os.environ.get("PORTAL_PASS", "atlas2026!research").encode()
+).hexdigest()
+
+
+def check_auth(username, password):
+    return (
+        username == PORTAL_USER
+        and hashlib.sha256(password.encode()).hexdigest() == PORTAL_PASS_HASH
+    )
+
+
+def auth_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return Response(
+                "Authentication required.",
+                401,
+                {"WWW-Authenticate": 'Basic realm="Atlas Portal"'},
+            )
+        return f(*args, **kwargs)
+    return decorated
+
+
+# Security headers on every response
+@app.after_request
+def security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    # CSP: allow self + netdata iframe
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self' 'unsafe-inline'; "
+        "connect-src 'self'; "
+        "frame-src http://100.68.134.21:19999 https://100.68.134.21:19999; "
+        "img-src 'self' data: https://img.shields.io;"
+    )
+    return response
 
 # ─── System monitoring ─────────────────────────────────────────────
 
@@ -180,11 +231,13 @@ def get_per_core():
 
 
 @app.route("/api/cores")
+@auth_required
 def api_cores():
     return jsonify(get_per_core())
 
 
 @app.route("/api/status")
+@auth_required
 def api_status():
     return jsonify({
         "timestamp": datetime.now().isoformat(),
@@ -197,6 +250,7 @@ def api_status():
     })
 
 @app.route("/api/results")
+@auth_required
 def api_results():
     return jsonify(get_results())
 
@@ -817,6 +871,7 @@ def _detect_stage(ds_name):
 
 
 @app.route("/api/pipelines")
+@auth_required
 def api_pipelines():
     return jsonify(discover_pipelines())
 
@@ -985,16 +1040,19 @@ setInterval(refresh, 5000);
 """
 
 @app.route("/flow")
+@auth_required
 def flow():
     return render_template_string(FLOW_TEMPLATE)
 
 
 @app.route("/map")
+@auth_required
 def resource_map():
     return render_template_string(MAP_TEMPLATE)
 
 
 @app.route("/")
+@auth_required
 def index():
     return render_template_string(TEMPLATE)
 
