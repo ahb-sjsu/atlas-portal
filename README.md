@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="logo.svg" width="160" alt="research-portal logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logo_dark.svg" width="160">
+    <source media="(prefers-color-scheme: light)" srcset="logo_light.svg" width="160">
+    <img src="logo_dark.svg" width="160" alt="research-portal logo">
+  </picture>
 </p>
 
 <h1 align="center">research-portal</h1>
