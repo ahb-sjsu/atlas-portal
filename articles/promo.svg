@@ -1,0 +1,237 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" font-family="Consolas, 'Fira Code', monospace">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1117"/>
+      <stop offset="100%" stop-color="#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="gpu-bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2563eb" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#2563eb" stop-opacity="0.6"/>
+    </linearGradient>
+    <linearGradient id="gpu-bar2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#48bb78" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#48bb78" stop-opacity="0.6"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Header bar -->
+  <rect x="0" y="0" width="1200" height="56" fill="#16213e" opacity="0.8"/>
+  <text x="30" y="37" fill="#63b3ed" font-size="24" font-weight="600">ATLAS</text>
+  <text x="115" y="37" fill="#a0aec0" font-size="24" font-weight="300"> Research Portal</text>
+  <text x="1000" y="37" fill="#4a5568" font-size="13">pip install research-portal</text>
+
+  <!-- Left panel: Dashboard -->
+  <rect x="20" y="72" width="370" height="540" rx="12" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+  <text x="40" y="100" fill="#718096" font-size="11" letter-spacing="1">DASHBOARD</text>
+
+  <!-- CPU temps -->
+  <text x="40" y="130" fill="#a0aec0" font-size="12">CPU Package 0</text>
+  <text x="300" y="130" fill="#48bb78" font-size="14" font-weight="600">62.0C</text>
+  <text x="40" y="152" fill="#a0aec0" font-size="12">CPU Package 1</text>
+  <text x="300" y="152" fill="#48bb78" font-size="14" font-weight="600">55.0C</text>
+  <rect x="40" y="162" width="330" height="1" fill="#2d3748"/>
+
+  <!-- GPU 0 -->
+  <text x="40" y="185" fill="#a0aec0" font-size="12">GPU 0: Quadro GV100</text>
+  <text x="300" y="185" fill="#ecc94b" font-size="14" font-weight="600">78C</text>
+  <rect x="40" y="194" width="330" height="8" rx="4" fill="#2d3748"/>
+  <rect x="40" y="194" width="280" height="8" rx="4" fill="url(#gpu-bar)"/>
+  <text x="40" y="216" fill="#a0aec0" font-size="11">Utilization 85%</text>
+  <text x="200" y="216" fill="#a0aec0" font-size="11">28,400 / 32,768 MB</text>
+
+  <!-- GPU 1 -->
+  <text x="40" y="242" fill="#a0aec0" font-size="12">GPU 1: Quadro GV100</text>
+  <text x="300" y="242" fill="#48bb78" font-size="14" font-weight="600">61C</text>
+  <rect x="40" y="251" width="330" height="8" rx="4" fill="#2d3748"/>
+  <rect x="40" y="251" width="132" height="8" rx="4" fill="url(#gpu-bar2)"/>
+  <text x="40" y="273" fill="#a0aec0" font-size="11">Utilization 40%</text>
+  <text x="200" y="273" fill="#a0aec0" font-size="11">12,800 / 32,768 MB</text>
+  <rect x="40" y="283" width="330" height="1" fill="#2d3748"/>
+
+  <!-- Platform Guide -->
+  <text x="40" y="306" fill="#718096" font-size="11" letter-spacing="1">PLATFORM GUIDE</text>
+  <text x="40" y="328" fill="#a0aec0" font-size="11">Hostname</text>
+  <text x="240" y="328" fill="#e2e8f0" font-size="12" font-weight="600">ATLAS</text>
+  <text x="40" y="348" fill="#a0aec0" font-size="11">CPU</text>
+  <text x="240" y="348" fill="#e2e8f0" font-size="10">2x Xeon E5-2690 v3</text>
+  <text x="40" y="368" fill="#a0aec0" font-size="11">Cores / Threads</text>
+  <text x="240" y="368" fill="#e2e8f0" font-size="12" font-weight="600">24 / 48</text>
+  <text x="40" y="388" fill="#a0aec0" font-size="11">RAM</text>
+  <text x="240" y="388" fill="#e2e8f0" font-size="12" font-weight="600">128 GB</text>
+
+  <!-- Middle panel: Resource Map -->
+  <rect x="410" y="72" width="370" height="540" rx="12" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+  <text x="430" y="100" fill="#718096" font-size="11" letter-spacing="1">RESOURCE MAP</text>
+
+  <!-- Core grid (6x4 sample) -->
+  <g transform="translate(430, 115)">
+    <!-- Row 1 -->
+    <rect x="0" y="0" width="38" height="38" rx="4" fill="#1c3a2a" stroke="#276749" stroke-width="1"/>
+    <text x="19" y="18" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">0</text>
+    <text x="19" y="30" fill="#a0aec0" font-size="6" text-anchor="middle">train.py</text>
+
+    <rect x="44" y="0" width="38" height="38" rx="4" fill="#3a1c1c" stroke="#c53030" stroke-width="1"/>
+    <text x="63" y="18" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">1</text>
+    <text x="63" y="30" fill="#a0aec0" font-size="6" text-anchor="middle">eval.py</text>
+
+    <rect x="88" y="0" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="107" y="22" fill="#4a5568" font-size="10" text-anchor="middle">2</text>
+
+    <rect x="132" y="0" width="38" height="38" rx="4" fill="#3a3320" stroke="#975a16" stroke-width="1"/>
+    <text x="151" y="18" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">3</text>
+    <text x="151" y="30" fill="#a0aec0" font-size="6" text-anchor="middle">radar.py</text>
+
+    <rect x="176" y="0" width="38" height="38" rx="4" fill="#1c3a2a" stroke="#276749" stroke-width="1"/>
+    <text x="195" y="22" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">4</text>
+
+    <rect x="220" y="0" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="239" y="22" fill="#4a5568" font-size="10" text-anchor="middle">5</text>
+
+    <rect x="264" y="0" width="38" height="38" rx="4" fill="#3a1c1c" stroke="#c53030" stroke-width="1"/>
+    <text x="283" y="18" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">6</text>
+    <text x="283" y="30" fill="#a0aec0" font-size="6" text-anchor="middle">depth9.py</text>
+
+    <!-- Row 2 -->
+    <rect x="0" y="44" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="19" y="66" fill="#4a5568" font-size="10" text-anchor="middle">7</text>
+
+    <rect x="44" y="44" width="38" height="38" rx="4" fill="#1c3a2a" stroke="#276749" stroke-width="1"/>
+    <text x="63" y="66" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">8</text>
+
+    <rect x="88" y="44" width="38" height="38" rx="4" fill="#3a3320" stroke="#975a16" stroke-width="1"/>
+    <text x="107" y="62" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">9</text>
+    <text x="107" y="74" fill="#a0aec0" font-size="6" text-anchor="middle">GB fit</text>
+
+    <rect x="132" y="44" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="151" y="66" fill="#4a5568" font-size="10" text-anchor="middle">10</text>
+
+    <rect x="176" y="44" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="195" y="66" fill="#4a5568" font-size="10" text-anchor="middle">11</text>
+
+    <rect x="220" y="44" width="38" height="38" rx="4" fill="#3a1c1c" stroke="#c53030" stroke-width="1"/>
+    <text x="239" y="62" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">12</text>
+    <text x="239" y="74" fill="#a0aec0" font-size="6" text-anchor="middle">pls.py</text>
+
+    <rect x="264" y="44" width="38" height="38" rx="4" fill="#1c3a2a" stroke="#276749" stroke-width="1"/>
+    <text x="283" y="66" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">13</text>
+
+    <!-- Row 3 (more idle) -->
+    <rect x="0" y="88" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="19" y="110" fill="#4a5568" font-size="10" text-anchor="middle">14</text>
+    <rect x="44" y="88" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="63" y="110" fill="#4a5568" font-size="10" text-anchor="middle">15</text>
+    <rect x="88" y="88" width="38" height="38" rx="4" fill="#1c3a2a" stroke="#276749" stroke-width="1"/>
+    <text x="107" y="110" fill="#e2e8f0" font-size="10" text-anchor="middle" font-weight="600">16</text>
+    <rect x="132" y="88" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="151" y="110" fill="#4a5568" font-size="10" text-anchor="middle">17</text>
+    <rect x="176" y="88" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="195" y="110" fill="#4a5568" font-size="10" text-anchor="middle">18</text>
+    <rect x="220" y="88" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="239" y="110" fill="#4a5568" font-size="10" text-anchor="middle">19</text>
+    <rect x="264" y="88" width="38" height="38" rx="4" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+    <text x="283" y="110" fill="#4a5568" font-size="10" text-anchor="middle">20</text>
+  </g>
+
+  <!-- GPU visuals in resource map -->
+  <text x="430" y="270" fill="#718096" font-size="10" letter-spacing="1">GPU 0 -- Quadro GV100</text>
+  <rect x="430" y="278" width="330" height="50" rx="6" fill="#0f1117"/>
+  <rect x="430" y="278" width="280" height="50" rx="6" fill="url(#gpu-bar)" opacity="0.7"/>
+  <text x="440" y="296" fill="#e2e8f0" font-size="11">85% utilization</text>
+  <text x="440" y="314" fill="#a0aec0" font-size="10">28,400 / 32,768 MB</text>
+  <text x="720" y="296" fill="#ecc94b" font-size="16" font-weight="600">78C</text>
+
+  <text x="430" y="348" fill="#718096" font-size="10" letter-spacing="1">GPU 1 -- Quadro GV100</text>
+  <rect x="430" y="356" width="330" height="50" rx="6" fill="#0f1117"/>
+  <rect x="430" y="356" width="132" height="50" rx="6" fill="url(#gpu-bar2)" opacity="0.7"/>
+  <text x="440" y="374" fill="#e2e8f0" font-size="11">40% utilization</text>
+  <text x="440" y="392" fill="#a0aec0" font-size="10">12,800 / 32,768 MB</text>
+  <text x="720" y="374" fill="#48bb78" font-size="16" font-weight="600">61C</text>
+
+  <!-- Right panel: Pipeline Flow -->
+  <rect x="800" y="72" width="380" height="540" rx="12" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+  <text x="820" y="100" fill="#718096" font-size="11" letter-spacing="1">PIPELINE FLOW</text>
+
+  <!-- Summary cards -->
+  <rect x="820" y="112" width="60" height="40" rx="6" fill="#0f1117" stroke="#2d3748" stroke-width="1"/>
+  <text x="850" y="134" fill="#63b3ed" font-size="18" font-weight="600" text-anchor="middle">3</text>
+  <text x="850" y="148" fill="#718096" font-size="8" text-anchor="middle">Active</text>
+
+  <rect x="890" y="112" width="60" height="40" rx="6" fill="#0f1117" stroke="#2d3748" stroke-width="1"/>
+  <text x="920" y="134" fill="#48bb78" font-size="18" font-weight="600" text-anchor="middle">19</text>
+  <text x="920" y="148" fill="#718096" font-size="8" text-anchor="middle">Completed</text>
+
+  <rect x="960" y="112" width="60" height="40" rx="6" fill="#0f1117" stroke="#2d3748" stroke-width="1"/>
+  <text x="990" y="134" fill="#e2e8f0" font-size="18" font-weight="600" text-anchor="middle">22</text>
+  <text x="990" y="148" fill="#718096" font-size="8" text-anchor="middle">Total</text>
+
+  <!-- Active pipelines -->
+  <text x="820" y="180" fill="#718096" font-size="9" letter-spacing="1">ACTIVE</text>
+
+  <!-- Pipeline 1: run_depth9/HIGGS -->
+  <rect x="820" y="190" width="340" height="42" rx="4" fill="#1a2035" stroke="#2b6cb0" stroke-width="1"/>
+  <rect x="820" y="190" width="3" height="42" rx="1" fill="#63b3ed"/>
+  <text x="835" y="207" fill="#63b3ed" font-size="12" font-weight="600">run_depth9/HIGGS</text>
+  <rect x="970" y="198" width="32" height="14" rx="3" fill="#2b6cb0"/>
+  <text x="986" y="208" fill="#bee3f8" font-size="8" text-anchor="middle">GPU 0</text>
+  <text x="835" y="224" fill="#a0aec0" font-size="10">fold 20/100 | deep=0.704 rf=0.722</text>
+  <rect x="820" y="230" width="130" height="2" rx="1" fill="#63b3ed" opacity="0.6"/>
+
+  <!-- Pipeline 2: run_depth9/Spambase -->
+  <rect x="820" y="240" width="340" height="42" rx="4" fill="#1a2035" stroke="#2b6cb0" stroke-width="1"/>
+  <rect x="820" y="240" width="3" height="42" rx="1" fill="#63b3ed"/>
+  <text x="835" y="257" fill="#63b3ed" font-size="12" font-weight="600">run_depth9/Spambase</text>
+  <rect x="990" y="248" width="32" height="14" rx="3" fill="#975a16"/>
+  <text x="1006" y="258" fill="#fefcbf" font-size="8" text-anchor="middle">GPU 1</text>
+  <text x="835" y="274" fill="#a0aec0" font-size="10">fold 10/100 | deep=0.699 rf=0.916</text>
+  <rect x="820" y="280" width="60" height="2" rx="1" fill="#63b3ed" opacity="0.6"/>
+
+  <!-- Completed pipelines -->
+  <text x="820" y="308" fill="#718096" font-size="9" letter-spacing="1">COMPLETED</text>
+
+  <rect x="820" y="316" width="340" height="36" rx="4" fill="#1a2c1a" stroke="#276749" stroke-width="1"/>
+  <rect x="820" y="316" width="3" height="36" rx="1" fill="#48bb78"/>
+  <text x="835" y="333" fill="#48bb78" font-size="11" font-weight="600">theory-radar/BreastCancer</text>
+  <text x="835" y="346" fill="#a0aec0" font-size="9">F1=0.972 | WINS vs GB (10.1s) | 2h ago</text>
+
+  <rect x="820" y="358" width="340" height="36" rx="4" fill="#1a2c1a" stroke="#276749" stroke-width="1"/>
+  <rect x="820" y="358" width="3" height="36" rx="1" fill="#48bb78"/>
+  <text x="835" y="375" fill="#48bb78" font-size="11" font-weight="600">theory-radar/Wine</text>
+  <text x="835" y="388" fill="#a0aec0" font-size="9">F1=0.958 | WINS vs GB (18.2s) | 3h ago</text>
+
+  <rect x="820" y="400" width="340" height="36" rx="4" fill="#1a2c1a" stroke="#276749" stroke-width="1"/>
+  <rect x="820" y="400" width="3" height="36" rx="1" fill="#48bb78"/>
+  <text x="835" y="417" fill="#48bb78" font-size="11" font-weight="600">theory-radar/Diabetes</text>
+  <text x="835" y="430" fill="#a0aec0" font-size="9">F1=0.662 | WINS vs GB (21.7s) | 3h ago</text>
+
+  <rect x="820" y="442" width="340" height="36" rx="4" fill="#1a2c1a" stroke="#276749" stroke-width="1"/>
+  <rect x="820" y="442" width="3" height="36" rx="1" fill="#48bb78"/>
+  <text x="835" y="459" fill="#48bb78" font-size="11" font-weight="600">theory-radar/EEG</text>
+  <text x="835" y="472" fill="#a0aec0" font-size="9">F1=0.656 | loses to GB (255s) | 4h ago</text>
+
+  <!-- More indicator -->
+  <text x="950" y="500" fill="#4a5568" font-size="10" text-anchor="middle">+ 15 more completed</text>
+
+  <!-- Legend -->
+  <rect x="430" y="425" width="330" height="60" rx="6" fill="#0f1117" opacity="0.5"/>
+  <rect x="445" y="440" width="10" height="10" rx="2" fill="#1a202c" stroke="#2d3748" stroke-width="1"/>
+  <text x="462" y="449" fill="#718096" font-size="9">Idle</text>
+  <rect x="500" y="440" width="10" height="10" rx="2" fill="#1c3a2a" stroke="#276749" stroke-width="1"/>
+  <text x="517" y="449" fill="#718096" font-size="9">Low</text>
+  <rect x="548" y="440" width="10" height="10" rx="2" fill="#3a3320" stroke="#975a16" stroke-width="1"/>
+  <text x="565" y="449" fill="#718096" font-size="9">Med</text>
+  <rect x="598" y="440" width="10" height="10" rx="2" fill="#3a1c1c" stroke="#c53030" stroke-width="1"/>
+  <text x="615" y="449" fill="#718096" font-size="9">High</text>
+  <rect x="648" y="440" width="10" height="10" rx="2" fill="#1a202c" stroke="#63b3ed" stroke-width="2"/>
+  <text x="665" y="449" fill="#718096" font-size="9">Has Job</text>
+
+  <!-- Bottom tagline -->
+  <text x="600" y="590" fill="#4a5568" font-size="12" text-anchor="middle">pip install research-portal</text>
+  <text x="600" y="608" fill="#2d3748" font-size="10" text-anchor="middle">Zero-config research workstation dashboard with automatic pipeline discovery</text>
+</svg>

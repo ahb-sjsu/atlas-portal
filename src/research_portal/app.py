@@ -209,7 +209,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Consolas', 'Fira Code', 'Monaco', monospace; background: #0f1117; color: #e2e8f0; font-size: 14px; }
-  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 24px 32px; border-bottom: 1px solid #2d3748; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 24px 32px; border-bottom: 1px solid #2d3748; display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+  .header-logo { width: 44px; height: 44px; flex-shrink: 0; }
   .header h1 { font-size: 28px; font-weight: 300; letter-spacing: 2px; }
   .header h1 span { color: #63b3ed; font-weight: 600; }
   .header .subtitle { color: #718096; font-size: 14px; margin-top: 4px; }
@@ -240,11 +241,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <body>
 
 <div class="header">
-  <h1><span>{{ hostname }}</span> Research Portal</h1>
-  <div class="subtitle" id="subtitle">{{ sysinfo.cpu_model }} &middot; {{ sysinfo.gpu_models | join(', ') or 'No GPU detected' }} &middot; {{ sysinfo.total_ram_gb }} GB RAM</div>
-  <div class="header-links">
-    <a href="/map">Resource Map</a>
-    <a href="/flow">Pipeline Flow</a>
+  <svg class="header-logo" viewBox="0 0 512 512"><defs><linearGradient id="lo" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#63b3ed"/><stop offset="100%" stop-color="#2b6cb0"/></linearGradient></defs><circle cx="256" cy="256" r="56" fill="url(#lo)" opacity=".9"/><ellipse cx="256" cy="256" rx="180" ry="60" fill="none" stroke="#63b3ed" stroke-width="1.5" transform="rotate(-20,256,256)" opacity=".35"/><ellipse cx="256" cy="256" rx="180" ry="60" fill="none" stroke="#63b3ed" stroke-width="1.5" transform="rotate(40,256,256)" opacity=".25"/><circle cx="148" cy="198" r="8" fill="#48bb78"/><circle cx="370" cy="210" r="8" fill="#ecc94b"/><circle cx="190" cy="340" r="6" fill="#63b3ed" opacity=".6"/><circle cx="330" cy="320" r="6" fill="#63b3ed" opacity=".5"/><text x="256" y="252" fill="#fff" font-size="32" font-weight="700" text-anchor="middle" font-family="sans-serif">R</text><text x="256" y="278" fill="#e2e8f0" font-size="15" font-weight="600" text-anchor="middle" font-family="sans-serif" letter-spacing="7">PORTAL</text></svg>
+  <div>
+    <h1><span>{{ hostname }}</span> Research Portal</h1>
+    <div class="subtitle" id="subtitle">{{ sysinfo.cpu_model }} &middot; {{ sysinfo.gpu_models | join(', ') or 'No GPU detected' }} &middot; {{ sysinfo.total_ram_gb }} GB RAM</div>
+    <div class="header-links">
+      <a href="/map">Resource Map</a>
+      <a href="/flow">Pipeline Flow</a>
+    </div>
   </div>
 </div>
 

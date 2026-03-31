@@ -1,11 +1,17 @@
-# research-portal
+<p align="center">
+  <img src="logo.svg" width="160" alt="research-portal logo">
+</p>
 
-[![PyPI version](https://img.shields.io/pypi/v/research-portal)](https://pypi.org/project/research-portal/)
-[![CI](https://github.com/ahb-sjsu/atlas-portal/actions/workflows/ci.yml/badge.svg)](https://github.com/ahb-sjsu/atlas-portal/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/research-portal/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+<h1 align="center">research-portal</h1>
 
-Zero-config research workstation dashboard with automatic pipeline discovery.
+<p align="center">
+  <a href="https://pypi.org/project/research-portal/"><img src="https://img.shields.io/pypi/v/research-portal" alt="PyPI version"></a>
+  <a href="https://github.com/ahb-sjsu/atlas-portal/actions/workflows/ci.yml"><img src="https://github.com/ahb-sjsu/atlas-portal/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/research-portal/"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT"></a>
+</p>
+
+<p align="center">Zero-config research workstation dashboard with automatic pipeline discovery.</p>
 
 Drop it on any Linux research machine and instantly get live GPU/CPU monitoring, running pipeline detection, and a resource map -- no configuration needed.
 
