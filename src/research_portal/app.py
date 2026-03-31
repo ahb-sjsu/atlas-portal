@@ -181,13 +181,13 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; }
+  body { font-family: 'Consolas', 'Fira Code', 'Monaco', monospace; background: #0f1117; color: #e2e8f0; font-size: 14px; }
   .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 24px 32px; border-bottom: 1px solid #2d3748; }
   .header h1 { font-size: 28px; font-weight: 300; letter-spacing: 2px; }
   .header h1 span { color: #63b3ed; font-weight: 600; }
   .header .subtitle { color: #718096; font-size: 14px; margin-top: 4px; }
   .header-links { margin-top: 8px; }
-  .header-links a { color: #63b3ed; text-decoration: none; font-size: 13px; margin-right: 20px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; transition: background 0.2s; }
+  .header-links a { color: #63b3ed; text-decoration: none; font-size: 14px; margin-right: 20px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; transition: background 0.2s; }
   .header-links a:hover { background: #2d3748; }
   .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px; }
@@ -243,6 +243,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <div class="card" style="margin-bottom: 24px;">
     <h2>Active Sessions</h2>
     <div id="sessions">Loading...</div>
+  </div>
+
+  <!-- Dynamic Platform Guide -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h2>Platform Guide</h2>
+    <div id="platform-guide">Loading...</div>
   </div>
 
   <div class="refresh-note">Auto-refreshes every 10 seconds</div>
@@ -309,6 +315,28 @@ async function refresh() {
     }
     document.getElementById('sessions').innerHTML = sessHtml || '<span style="color:#4a5568">No active sessions</span>';
 
+    // Platform Guide (dynamic)
+    const si = status.system_info;
+    let guideHtml = '';
+    guideHtml += '<div class="metric"><span class="label">Hostname</span><span class="value">' + si.hostname + '</span></div>';
+    guideHtml += '<div class="metric"><span class="label">OS</span><span class="value">' + si.os + '</span></div>';
+    guideHtml += '<div class="metric"><span class="label">Kernel</span><span class="value">' + si.kernel + '</span></div>';
+    guideHtml += '<div class="metric"><span class="label">CPU</span><span class="value">' + si.cpu_model + '</span></div>';
+    guideHtml += '<div class="metric"><span class="label">Cores / Threads</span><span class="value">' + si.cpu_cores + ' / ' + si.cpu_threads + '</span></div>';
+    guideHtml += '<div class="metric"><span class="label">RAM</span><span class="value">' + si.total_ram_gb + ' GB</span></div>';
+    if (si.gpu_models && si.gpu_models.length > 0) {
+      for (let i = 0; i < si.gpu_models.length; i++) {
+        guideHtml += '<div class="metric"><span class="label">GPU ' + i + '</span><span class="value">' + si.gpu_models[i] + '</span></div>';
+      }
+    }
+    if (mem && mem.total_mb) {
+      guideHtml += '<div class="metric"><span class="label">RAM Used</span><span class="value">' + Math.round(mem.used_mb/1024) + ' / ' + Math.round(mem.total_mb/1024) + ' GB</span></div>';
+    }
+    if (disk && disk.total_gb) {
+      guideHtml += '<div class="metric"><span class="label">Disk</span><span class="value">' + disk.used_gb + ' / ' + disk.total_gb + ' GB</span></div>';
+    }
+    document.getElementById('platform-guide').innerHTML = guideHtml;
+
   } catch(e) {
     console.error('Refresh failed:', e);
   }
@@ -328,40 +356,40 @@ _MAP_TEMPLATE = r"""<!DOCTYPE html>
 <title>{{ hostname }} -- Resource Map</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; }
+  body { font-family: 'Consolas', 'Fira Code', 'Monaco', monospace; background: #0f1117; color: #e2e8f0; font-size: 14px; }
   .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 16px 24px; border-bottom: 1px solid #2d3748; display: flex; justify-content: space-between; align-items: center; }
-  .header h1 { font-size: 22px; font-weight: 300; letter-spacing: 2px; }
+  .header h1 { font-size: 24px; font-weight: 300; letter-spacing: 2px; }
   .header h1 span { color: #63b3ed; font-weight: 600; }
-  .header a { color: #63b3ed; text-decoration: none; font-size: 13px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; }
-  .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+  .header a { color: #63b3ed; text-decoration: none; font-size: 14px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; }
+  .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
   .sockets { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
   .socket { background: #1a202c; border-radius: 12px; padding: 16px; border: 1px solid #2d3748; }
-  .socket h3 { font-size: 12px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin-bottom: 12px; }
-  .socket .temp { float: right; font-size: 14px; font-weight: 600; }
-  .core-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
-  .core { aspect-ratio: 1; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; transition: all 0.3s; cursor: default; position: relative; border: 1px solid transparent; }
-  .core .id { font-weight: 600; font-size: 10px; }
-  .core .job { font-size: 7px; color: #e2e8f0; text-align: center; margin-top: 2px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .socket h3 { font-size: 14px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin-bottom: 12px; }
+  .socket .temp { float: right; font-size: 16px; font-weight: 600; }
+  .core-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .core { aspect-ratio: 1; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; transition: all 0.3s; cursor: default; position: relative; border: 1px solid transparent; }
+  .core .id { font-weight: 600; font-size: 14px; }
+  .core .job { font-size: 10px; color: #e2e8f0; text-align: center; margin-top: 2px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .core.idle { background: #1a202c; border-color: #2d3748; }
   .core.low { background: #1c3a2a; border-color: #276749; }
   .core.med { background: #3a3320; border-color: #975a16; }
   .core.high { background: #3a1c1c; border-color: #c53030; }
   .core.has-job { border-color: #63b3ed; box-shadow: 0 0 8px rgba(99,179,237,0.3); }
-  .gpus { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px; }
+  .gpus { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px; margin-bottom: 24px; }
   .gpu-card { background: #1a202c; border-radius: 12px; padding: 16px; border: 1px solid #2d3748; }
-  .gpu-card h3 { font-size: 12px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin-bottom: 8px; }
-  .gpu-visual { height: 80px; background: #0f1117; border-radius: 8px; position: relative; overflow: hidden; margin: 8px 0; }
+  .gpu-card h3 { font-size: 14px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin-bottom: 8px; }
+  .gpu-visual { height: 100px; background: #0f1117; border-radius: 8px; position: relative; overflow: hidden; margin: 8px 0; }
   .gpu-fill { height: 100%; transition: width 0.5s; position: absolute; left: 0; top: 0; }
   .gpu-fill.util { background: linear-gradient(90deg, #2563eb44, #2563eb88); }
   .gpu-fill.mem { background: linear-gradient(90deg, #48bb7844, #48bb7888); top: 50%; height: 50%; }
-  .gpu-label { position: absolute; padding: 4px 8px; font-size: 11px; color: #e2e8f0; z-index: 1; }
+  .gpu-label { position: absolute; padding: 4px 8px; font-size: 14px; color: #e2e8f0; z-index: 1; }
   .gpu-label.top { top: 8px; left: 8px; }
   .gpu-label.bot { bottom: 8px; left: 8px; }
-  .gpu-temp { position: absolute; top: 8px; right: 8px; font-size: 18px; font-weight: 600; z-index: 1; }
-  .legend { display: flex; gap: 16px; justify-content: center; margin: 16px 0; font-size: 11px; color: #718096; }
+  .gpu-temp { position: absolute; top: 8px; right: 8px; font-size: 20px; font-weight: 600; z-index: 1; }
+  .legend { display: flex; gap: 16px; justify-content: center; margin: 16px 0; font-size: 13px; color: #718096; }
   .legend-item { display: flex; align-items: center; gap: 4px; }
-  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
-  .refresh-bar { text-align: center; color: #4a5568; font-size: 10px; padding: 4px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; }
+  .refresh-bar { text-align: center; color: #4a5568; font-size: 12px; padding: 4px; }
 </style>
 </head>
 <body>

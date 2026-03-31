@@ -24,6 +24,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--no-ssl", action="store_true", help="Force plain HTTP even if certs are present"
     )
+    parser.add_argument("--cert", default=None, help="Path to SSL certificate (cert.pem)")
+    parser.add_argument("--key", default=None, help="Path to SSL private key (key.pem)")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
 
     args = parser.parse_args(argv)
@@ -49,17 +51,24 @@ def main(argv: list[str] | None = None) -> None:
     default_port = 8080
 
     if not args.no_ssl:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        # Also check CWD and the original repo root for certs.
-        search_dirs = [script_dir, os.getcwd(), os.path.dirname(script_dir)]
-        for d in search_dirs:
-            cert_path = os.path.join(d, "cert.pem")
-            key_path = os.path.join(d, "key.pem")
-            if os.path.exists(cert_path) and os.path.exists(key_path):
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-                ssl_context.load_cert_chain(cert_path, key_path)
-                default_port = 8443
-                break
+        # Explicit --cert/--key takes priority, then auto-detect.
+        cert_path = args.cert
+        key_path = args.key
+        if cert_path and key_path:
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_context.load_cert_chain(cert_path, key_path)
+            default_port = 8443
+        else:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            search_dirs = [os.getcwd(), script_dir, os.path.dirname(script_dir)]
+            for d in search_dirs:
+                cp = os.path.join(d, "cert.pem")
+                kp = os.path.join(d, "key.pem")
+                if os.path.exists(cp) and os.path.exists(kp):
+                    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                    ssl_context.load_cert_chain(cp, kp)
+                    default_port = 8443
+                    break
 
     port = args.port if args.port is not None else default_port
     scheme = "https" if ssl_context else "http"
