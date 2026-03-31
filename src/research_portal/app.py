@@ -27,9 +27,12 @@ from research_portal.discovery import (
     get_cpu_temps,
     get_disk,
     get_gpu_info,
+    get_io_stats,
     get_load,
     get_memory,
+    get_net_stats,
     get_per_core,
+    get_raid_status,
     get_system_info,
     get_tmux_sessions,
 )
@@ -140,6 +143,9 @@ def build_app(*, no_auth: bool = False) -> Flask:
                 "load": get_load(),
                 "disk": get_disk(),
                 "sessions": get_tmux_sessions(),
+                "raid": get_raid_status(),
+                "io": get_io_stats(),
+                "net": get_net_stats(),
                 "system_info": sysinfo,
             }
         )
@@ -276,6 +282,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <div id="sessions">Loading...</div>
   </div>
 
+  <!-- RAID Storage -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h2>Storage Arrays</h2>
+    <div id="raid-status">Loading...</div>
+  </div>
+
   <!-- Dynamic Platform Guide -->
   <div class="card" style="margin-bottom: 24px;">
     <h2>Platform Guide</h2>
@@ -367,6 +379,53 @@ async function refresh() {
       guideHtml += '<div class="metric"><span class="label">Disk</span><span class="value">' + disk.used_gb + ' / ' + disk.total_gb + ' GB</span></div>';
     }
     document.getElementById('platform-guide').innerHTML = guideHtml;
+
+    // RAID / Storage Arrays
+    let raidHtml = '';
+    const tiers = {'raid1': 'WARM (mirror)', 'raid5': 'COLD (archive)', 'raid0': 'CACHE'};
+    if (status.raid && status.raid.length > 0) {
+      for (const r of status.raid) {
+        const tier = r.level === 'raid1' ? 'WARM' : r.level === 'raid5' ? 'COLD' : r.level;
+        const stateColor = r.disk_state && r.disk_state.includes('_') ? '#ecc94b' : '#48bb78';
+        raidHtml += '<div class="metric"><span class="label">' + r.name + ' (' + r.level + ') ' + (r.mount || '') + '</span>';
+        raidHtml += '<span class="value" style="color:' + stateColor + '">[' + (r.disk_state || '?') + ']';
+        if (r.size_gb) raidHtml += ' ' + r.size_gb + ' GB';
+        raidHtml += '</span></div>';
+        if (r.sync_pct != null) {
+          raidHtml += '<div class="metric"><span class="label">Sync</span><span class="value" style="color:#ecc94b">' + r.sync_pct.toFixed(1) + '% ' + (r.sync_speed || '') + '</span></div>';
+          raidHtml += '<div class="gpu-bar"><div class="gpu-bar-fill med" style="width:' + r.sync_pct + '%"></div></div>';
+        }
+      }
+    }
+    // Storage tiers with capacity
+    if (disk && disk.total_gb) {
+      raidHtml += '<div class="metric" style="margin-top:8px"><span class="label">HOT (NVMe /)</span><span class="value">' + disk.used_gb + ' / ' + disk.total_gb + ' GB</span></div>';
+      raidHtml += '<div class="gpu-bar"><div class="gpu-bar-fill ' + (disk.used_gb/disk.total_gb > 0.8 ? 'high' : 'low') + '" style="width:' + Math.round(100*disk.used_gb/disk.total_gb) + '%"></div></div>';
+    }
+    document.getElementById('raid-status').innerHTML = raidHtml || '<span style="color:#4a5568">No arrays detected</span>';
+
+    // I/O stats
+    let ioHtml = '';
+    if (status.io) {
+      for (const [dev, s] of Object.entries(status.io)) {
+        if (dev.startsWith('md') || dev.startsWith('nvme')) {
+          ioHtml += '<span class="session active" style="margin:2px">' + dev + ' R:' + s.read_mb + 'MB W:' + s.write_mb + 'MB</span>';
+        }
+      }
+    }
+
+    // Network stats
+    let netHtml = '';
+    if (status.net) {
+      for (const iface of status.net) {
+        netHtml += '<span class="session active" style="margin:2px">' + iface.name + ' RX:' + iface.rx_mb + 'MB TX:' + iface.tx_mb + 'MB</span>';
+      }
+    }
+    if (ioHtml || netHtml) {
+      const ioNetEl = document.getElementById('raid-status');
+      ioNetEl.innerHTML += '<div style="margin-top:8px"><span style="color:#718096;font-size:11px">I/O: </span>' + (ioHtml || 'none') + '</div>';
+      ioNetEl.innerHTML += '<div style="margin-top:4px"><span style="color:#718096;font-size:11px">Net: </span>' + (netHtml || 'none') + '</div>';
+    }
 
   } catch(e) {
     console.error('Refresh failed:', e);

@@ -251,6 +251,135 @@ def get_disk() -> dict:
         return {}
 
 
+def get_raid_status() -> list[dict]:
+    """Read RAID array status from /proc/mdstat."""
+    arrays: list[dict] = []
+    try:
+        with open("/proc/mdstat") as f:
+            lines = f.readlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line.startswith("md") and "active" in line:
+                parts = line.split()
+                name = parts[0]
+                level = ""
+                for p in parts:
+                    if p.startswith("raid"):
+                        level = p
+                        break
+                status = "active"
+                sync_pct = None
+                sync_speed = None
+                disks_line = ""
+                # Check next lines for disk status and sync progress
+                for j in range(i + 1, min(i + 4, len(lines))):
+                    nxt = lines[j].strip()
+                    if "[" in nxt and "]" in nxt and "U" in nxt:
+                        disks_line = nxt
+                    if "recovery" in nxt or "resync" in nxt or "reshape" in nxt:
+                        m = re.search(r"(\d+\.\d+)%", nxt)
+                        if m:
+                            sync_pct = float(m.group(1))
+                        m3 = re.search(r"speed=(\d+)K/sec", nxt)
+                        if m3:
+                            sync_speed = f"{int(m3.group(1)) // 1024} MB/s"
+                        status = "syncing"
+
+                # Extract [UU] or [UU_] pattern
+                disk_state = ""
+                m = re.search(r"\[([U_]+)\]", disks_line or line)
+                if m:
+                    disk_state = m.group(1)
+
+                # Get mount point
+                mount = None
+                try:
+                    mout = subprocess.check_output(
+                        ["findmnt", "-n", "-o", "TARGET", f"/dev/{name}"],
+                        text=True, timeout=2,
+                    ).strip()
+                    if mout:
+                        mount = mout
+                except Exception:
+                    pass
+
+                # Get size
+                size_gb = None
+                try:
+                    with open(f"/sys/block/{name}/size") as sf:
+                        sectors = int(sf.read().strip())
+                        size_gb = round(sectors * 512 / (1024**3))
+                except Exception:
+                    pass
+
+                arrays.append({
+                    "name": name,
+                    "level": level,
+                    "status": status,
+                    "disk_state": disk_state,
+                    "sync_pct": sync_pct,
+                    "sync_speed": sync_speed,
+                    "mount": mount,
+                    "size_gb": size_gb,
+                })
+            i += 1
+    except OSError:
+        pass
+    return arrays
+
+
+def get_io_stats() -> dict:
+    """Disk I/O stats from /proc/diskstats."""
+    stats: dict = {}
+    try:
+        with open("/proc/diskstats") as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 14:
+                    name = parts[2]
+                    if name.startswith("md") or name.startswith("nvme") or (
+                        name.startswith("sd") and len(name) == 3
+                    ):
+                        reads = int(parts[5])   # sectors read
+                        writes = int(parts[9])  # sectors written
+                        io_ms = int(parts[12])  # ms spent doing I/O
+                        stats[name] = {
+                            "read_mb": round(reads * 512 / (1024 * 1024)),
+                            "write_mb": round(writes * 512 / (1024 * 1024)),
+                            "io_ms": io_ms,
+                        }
+    except Exception:
+        pass
+    return stats
+
+
+def get_net_stats() -> list[dict]:
+    """Network interface stats from /proc/net/dev."""
+    interfaces: list[dict] = []
+    try:
+        with open("/proc/net/dev") as f:
+            for line in f:
+                if ":" not in line:
+                    continue
+                name, data = line.split(":", 1)
+                name = name.strip()
+                if name in ("lo",):
+                    continue
+                parts = data.split()
+                if len(parts) >= 16:
+                    interfaces.append({
+                        "name": name,
+                        "rx_mb": round(int(parts[0]) / (1024 * 1024)),
+                        "tx_mb": round(int(parts[8]) / (1024 * 1024)),
+                        "rx_packets": int(parts[1]),
+                        "tx_packets": int(parts[9]),
+                    })
+    except Exception:
+        pass
+    return interfaces
+
+
 def get_tmux_sessions() -> list[dict]:
     """List active tmux sessions."""
     try:
