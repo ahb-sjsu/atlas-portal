@@ -355,45 +355,63 @@ def _read_process_log(pid: int) -> dict | None:
         except (OSError, ValueError, IndexError):
             pass
 
-    # Strategy 3: match script name to /tmp/*.log convention
+    # Strategy 3: scan /tmp/*.log for recently-written files containing
+    # dataset/fold patterns. Match by checking if the log's CUDA device
+    # matches the process's, or by script name overlap.
     if not log_path:
         try:
+            # Get script name from cmdline for matching
             cmdline = open(f"/proc/{pid}/cmdline", "rb").read().decode("utf-8", "ignore")
-            # Extract script name from cmdline
+            script_base = ""
             for part in cmdline.split("\0"):
                 if part.endswith(".py"):
-                    base = os.path.basename(part).removesuffix(".py")
-                    # Check common log locations
-                    for candidate in [
-                        f"/tmp/{base}.log",
-                        f"/tmp/{base}_gpu1.log",
-                        "/tmp/pilot_d7.log",
-                        "/tmp/pilot_d7_gpu1.log",
-                    ]:
-                        if os.path.exists(candidate):
-                            log_path = candidate
-                            break
+                    script_base = os.path.basename(part).removesuffix(".py")
                     break
+
+            for entry in os.listdir("/tmp"):
+                if not entry.endswith(".log") or entry == "portal.log":
+                    continue
+                candidate = f"/tmp/{entry}"
+                try:
+                    mtime = os.path.getmtime(candidate)
+                    age = time.time() - mtime
+                    if age > 120:
+                        continue
+                    # Match: log filename overlaps with script name
+                    log_base = entry.removesuffix(".log")
+                    # e.g. "pilot_d7" matches "pilot_depth7"
+                    if (script_base and (
+                        log_base in script_base
+                        or script_base in log_base
+                        or log_base.replace("_d7", "_depth7") == script_base
+                        or script_base.replace("_depth7", "_d7") == log_base
+                    )):
+                        log_path = candidate
+                        break
+                except OSError:
+                    continue
         except OSError:
             pass
 
     if not log_path:
         return None
 
-    # Read the tail of the log
+    # Read the head (for dataset name) and tail (for progress)
     try:
         with open(log_path, "rb") as f:
+            head = f.read(1000).decode("utf-8", errors="ignore")
             f.seek(0, 2)
             size = f.tell()
-            f.seek(max(0, size - 2000))
+            f.seek(max(0, size - 3000))
             tail = f.read().decode("utf-8", errors="ignore")
     except OSError:
         return None
 
     result: dict = {}
+    full_text = head + "\n" + tail
 
-    # Parse dataset name: "=== DatasetName: N=... ==="
-    dataset_matches = re.findall(r"===\s+(\w[\w\-]+):\s+N=(\d+)\s+d=(\d+)", tail)
+    # Parse dataset name: "=== DatasetName: N=... ===" (check head + tail)
+    dataset_matches = re.findall(r"===\s+(\w[\w\-]+):\s+N=(\d+)\s+d=(\d+)", full_text)
     if dataset_matches:
         last = dataset_matches[-1]
         result["dataset"] = last[0]
@@ -550,7 +568,10 @@ def discover_pipelines() -> list[dict]:
 
         if pipeline_name:
             # Enrich from log output: find what the process is actually doing
-            detail = _read_process_log(pid)
+            try:
+                detail = _read_process_log(pid)
+            except Exception:
+                detail = None
             if detail:
                 if detail.get("dataset"):
                     pipeline_name = f"{pipeline_name}/{detail['dataset']}"
