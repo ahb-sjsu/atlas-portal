@@ -312,6 +312,78 @@ def get_per_core() -> dict:
     return cores
 
 
+def _read_process_log(pid: int) -> dict | None:
+    """Read a process's log output to learn what it's doing.
+
+    Discovers log files via /proc/pid/fd (finds open .log files or
+    stdout redirections), then parses the tail for dataset names,
+    fold progress, and current results.
+    """
+    # Find log files by scanning /proc/pid/fd for open .log files
+    log_path = None
+    try:
+        fd_dir = f"/proc/{pid}/fd"
+        for fd in os.listdir(fd_dir):
+            try:
+                link = os.readlink(os.path.join(fd_dir, fd))
+                if link.endswith(".log") and "/tmp/" in link:
+                    log_path = link
+                    break
+            except OSError:
+                continue
+    except OSError:
+        pass
+
+    if not log_path:
+        return None
+
+    # Read the tail of the log
+    try:
+        with open(log_path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 2000))
+            tail = f.read().decode("utf-8", errors="ignore")
+    except OSError:
+        return None
+
+    result: dict = {}
+
+    # Parse dataset name: "=== DatasetName: N=... ==="
+    dataset_matches = re.findall(r"===\s+(\w[\w\-]+):\s+N=(\d+)\s+d=(\d+)", tail)
+    if dataset_matches:
+        last = dataset_matches[-1]
+        result["dataset"] = last[0]
+        result["N"] = int(last[1])
+        result["d"] = int(last[2])
+
+    # Parse fold progress: "fold 25: deep=0.670 rf=0.829"
+    fold_matches = re.findall(r"fold\s+(\d+):\s+(.*)", tail)
+    if fold_matches:
+        last_fold = fold_matches[-1]
+        fold_num = int(last_fold[0])
+        # Assume 100 folds (20x5 CV)
+        total_folds = 100
+        pct = min(99, int(100 * fold_num / total_folds))
+        metrics = last_fold[1].strip()
+        result["stage_label"] = f"fold {fold_num}/{total_folds}|{pct}"
+        result["detail"] = metrics
+
+    # Parse depth progress: "d7: best=0.8998 K=1968 beam=3"
+    depth_matches = re.findall(r"d(\d+):\s+best=([\d.]+)", tail)
+    if depth_matches and not fold_matches:
+        last_depth = depth_matches[-1]
+        result["detail"] = f"depth {last_depth[0]} best={last_depth[1]}"
+
+    # Parse DONE lines: "DONE Spambase: deep(d7)=0.8700 rf=0.9100 sigma=-42.2"
+    done_matches = re.findall(r"DONE\s+(\w+):\s+(.*)", tail)
+    if done_matches:
+        last_done = done_matches[-1]
+        result["detail"] = last_done[1].strip()
+
+    return result if result else None
+
+
 def _detect_process_label(args: str) -> str | None:
     """Return a short human label for a pipeline-like process, or None."""
     # Python scripts
@@ -434,6 +506,14 @@ def discover_pipelines() -> list[dict]:
             stage = "collecting|0"
 
         if pipeline_name:
+            # Enrich from log output: find what the process is actually doing
+            detail = _read_process_log(pid)
+            if detail:
+                if detail.get("dataset"):
+                    pipeline_name = f"{pipeline_name}/{detail['dataset']}"
+                if detail.get("stage_label"):
+                    stage = detail["stage_label"]
+
             pipeline_procs.setdefault(pipeline_name, []).append(
                 {
                     "pid": pid,
@@ -443,6 +523,7 @@ def discover_pipelines() -> list[dict]:
                     "core": p["core"],
                     "elapsed": p["elapsed"],
                     "gpu": gpu_id,
+                    "detail": detail.get("detail") if detail else None,
                 }
             )
 
