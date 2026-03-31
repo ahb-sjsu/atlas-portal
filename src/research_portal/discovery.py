@@ -560,6 +560,7 @@ def discover_pipelines_with_history() -> list[dict]:
                 rec["completed_at"] = now
                 for stage in rec["pipeline"]["stages"]:
                     stage["status"] = "complete"
+                    stage["label"] = "complete"
                 rec["pipeline"]["process_count"] = 0
 
         # Build completed list (most recent first), cap at _MAX_HISTORY
