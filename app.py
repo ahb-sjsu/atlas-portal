@@ -221,6 +221,29 @@ TEMPLATE = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- Netdata Live Charts -->
+  <div class="card" style="margin-bottom: 24px;">
+    <h2>Detailed System Monitoring <a href="http://100.68.134.21:19999" style="color:#63b3ed; font-size:11px; text-transform:none; letter-spacing:0;">(full Netdata dashboard →)</a></h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <iframe src="http://100.68.134.21:19999/api/v1/badge.svg?chart=system.cpu&dimensions=user,system&after=-600&label=CPU%20Usage&units=%25&value_color=%23e2e8f0&label_color=%23718096&chart_color=%232d3748"
+              style="border:none; width:100%; height:30px;" loading="lazy"></iframe>
+      <iframe src="http://100.68.134.21:19999/api/v1/badge.svg?chart=sensors.temp_thermal_zone0_thermal_thermal_zone0&after=-600&label=CPU%20Temp&units=°C&value_color=%23e2e8f0&label_color=%23718096"
+              style="border:none; width:100%; height:30px;" loading="lazy"></iframe>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;">
+      <iframe src="http://100.68.134.21:19999/#;theme=slate;help=false;chartHeight=180;after=-600;chart=system.cpu"
+              style="border:none; width:100%; height:220px; border-radius:8px;" loading="lazy"></iframe>
+      <iframe src="http://100.68.134.21:19999/#;theme=slate;help=false;chartHeight=180;after=-600;chart=system.ram"
+              style="border:none; width:100%; height:220px; border-radius:8px;" loading="lazy"></iframe>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+      <iframe src="http://100.68.134.21:19999/#;theme=slate;help=false;chartHeight=180;after=-600;chart=nvidia_smi.gpu0_gpu_utilization"
+              style="border:none; width:100%; height:220px; border-radius:8px;" loading="lazy"></iframe>
+      <iframe src="http://100.68.134.21:19999/#;theme=slate;help=false;chartHeight=180;after=-600;chart=nvidia_smi.gpu1_gpu_utilization"
+              style="border:none; width:100%; height:220px; border-radius:8px;" loading="lazy"></iframe>
+    </div>
+  </div>
+
   <!-- Active Experiments -->
   <div class="card" style="margin-bottom: 24px;">
     <h2>Active Experiments</h2>
