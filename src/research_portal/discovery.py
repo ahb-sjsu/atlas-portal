@@ -319,7 +319,7 @@ def _read_process_log(pid: int) -> dict | None:
     stdout redirections), then parses the tail for dataset names,
     fold progress, and current results.
     """
-    # Find log files by scanning /proc/pid/fd for open .log files
+    # Strategy 1: check /proc/pid/fd for open .log files
     log_path = None
     try:
         fd_dir = f"/proc/{pid}/fd"
@@ -333,6 +333,49 @@ def _read_process_log(pid: int) -> dict | None:
                 continue
     except OSError:
         pass
+
+    # Strategy 2: check parent/sibling processes (tee piping)
+    if not log_path:
+        try:
+            with open(f"/proc/{pid}/stat") as f:
+                ppid = int(f.read().split()[3])
+            # Check siblings: children of our parent
+            for sibling_fd_dir in [f"/proc/{ppid}/fd"]:
+                try:
+                    for fd in os.listdir(sibling_fd_dir):
+                        try:
+                            link = os.readlink(os.path.join(sibling_fd_dir, fd))
+                            if link.endswith(".log") and "/tmp/" in link:
+                                log_path = link
+                                break
+                        except OSError:
+                            continue
+                except OSError:
+                    pass
+        except (OSError, ValueError, IndexError):
+            pass
+
+    # Strategy 3: match script name to /tmp/*.log convention
+    if not log_path:
+        try:
+            cmdline = open(f"/proc/{pid}/cmdline", "rb").read().decode("utf-8", "ignore")
+            # Extract script name from cmdline
+            for part in cmdline.split("\0"):
+                if part.endswith(".py"):
+                    base = os.path.basename(part).removesuffix(".py")
+                    # Check common log locations
+                    for candidate in [
+                        f"/tmp/{base}.log",
+                        f"/tmp/{base}_gpu1.log",
+                        "/tmp/pilot_d7.log",
+                        "/tmp/pilot_d7_gpu1.log",
+                    ]:
+                        if os.path.exists(candidate):
+                            log_path = candidate
+                            break
+                    break
+        except OSError:
+            pass
 
     if not log_path:
         return None
