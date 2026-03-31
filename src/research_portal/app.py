@@ -58,16 +58,33 @@ def build_app(*, no_auth: bool = False) -> Flask:
     hostname = sysinfo["hostname"].split(".")[0].upper() or "PORTAL"
 
     # -- Auth ---------------------------------------------------------------
-    portal_user = os.environ.get("PORTAL_USER", "atlas")
-    portal_pass_hash = hashlib.sha256(
+    # Multi-user: admin (full access) + optional guest accounts (read-only)
+    _users: dict[str, tuple[str, str]] = {}  # username -> (pass_hash, role)
+
+    # Admin user
+    admin_user = os.environ.get("PORTAL_USER", "atlas")
+    admin_hash = hashlib.sha256(
         os.environ.get("PORTAL_PASS", "atlas2026!research").encode()
     ).hexdigest()
+    _users[admin_user] = (admin_hash, "admin")
 
-    def check_auth(username: str, password: str) -> bool:
-        return (
-            username == portal_user
-            and hashlib.sha256(password.encode()).hexdigest() == portal_pass_hash
-        )
+    # Guest users from PORTAL_GUESTS env var: "user1:pass1,user2:pass2"
+    for entry in os.environ.get("PORTAL_GUESTS", "").split(","):
+        entry = entry.strip()
+        if ":" in entry:
+            gu, gp = entry.split(":", 1)
+            _users[gu.strip()] = (
+                hashlib.sha256(gp.strip().encode()).hexdigest(),
+                "guest",
+            )
+
+    def check_auth(username: str, password: str) -> str | None:
+        """Return role ('admin'/'guest') if valid, None otherwise."""
+        if username in _users:
+            pass_hash, role = _users[username]
+            if hashlib.sha256(password.encode()).hexdigest() == pass_hash:
+                return role
+        return None
 
     def auth_required(f):  # type: ignore[no-untyped-def]
         @functools.wraps(f)
@@ -75,12 +92,20 @@ def build_app(*, no_auth: bool = False) -> Flask:
             if no_auth:
                 return f(*args, **kwargs)
             auth = request.authorization
-            if not auth or not check_auth(auth.username, auth.password):
+            if not auth:
                 return Response(
                     "Authentication required.",
                     401,
                     {"WWW-Authenticate": f'Basic realm="{hostname} Portal"'},
                 )
+            role = check_auth(auth.username, auth.password)
+            if not role:
+                return Response(
+                    "Authentication required.",
+                    401,
+                    {"WWW-Authenticate": f'Basic realm="{hostname} Portal"'},
+                )
+            request.environ["portal_role"] = role
             return f(*args, **kwargs)
 
         return decorated
@@ -154,6 +179,8 @@ def build_app(*, no_auth: bool = False) -> Flask:
     @app.route("/api/download/<dataset>")
     @auth_required
     def download_result(dataset):  # type: ignore[no-untyped-def]
+        if request.environ.get("portal_role") != "admin":
+            return Response("Admin access required.", 403)
         dataset = re.sub(r"[^a-zA-Z0-9_-]", "", dataset)
         results_dir = os.environ.get("PORTAL_RESULTS_DIR", ".")
         path = os.path.join(results_dir, f"result_{dataset}.json")
