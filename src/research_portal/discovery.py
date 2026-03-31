@@ -536,11 +536,18 @@ def discover_pipelines() -> list[dict]:
         except Exception:
             pass
 
-        # Generic Python script detection
-        py_match = re.search(r"python[23]?\s+\S*?([^/\\]+\.py)", args)
+        # Generic Python script detection — include first arg for uniqueness
+        py_match = re.search(r"python[23]?\s+(\S+\.py)(?:\s+(.+))?", args)
         if py_match:
-            script = py_match.group(1)
-            pipeline_name = script.removesuffix(".py")
+            script_path = py_match.group(1)
+            script = script_path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+            remaining = (py_match.group(2) or "").strip().split()
+            base = script.removesuffix(".py")
+            # Use first positional arg as sub-name (e.g. dataset name)
+            if remaining and not remaining[0].startswith("-"):
+                pipeline_name = f"{base}/{remaining[0]}"
+            else:
+                pipeline_name = base
             stage = "running|0"
 
         # Generic bash script detection
