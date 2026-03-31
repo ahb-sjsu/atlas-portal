@@ -380,12 +380,12 @@ def _read_process_log(pid: int) -> dict | None:
                     # Match: log filename overlaps with script name
                     log_base = entry.removesuffix(".log")
                     # e.g. "pilot_d7" matches "pilot_depth7"
-                    if (script_base and (
+                    if script_base and (
                         log_base in script_base
                         or script_base in log_base
                         or log_base.replace("_d7", "_depth7") == script_base
                         or script_base.replace("_depth7", "_d7") == log_base
-                    )):
+                    ):
                         log_path = candidate
                         break
                 except OSError:
