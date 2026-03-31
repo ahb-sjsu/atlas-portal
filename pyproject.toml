@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "research-portal"
+version = "0.1.0"
+description = "Zero-config research workstation dashboard with automatic pipeline discovery"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Andrew H. Bond" }]
+keywords = ["monitoring", "dashboard", "gpu", "research", "workstation", "pipeline"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Flask",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+]
+dependencies = ["flask>=3.0"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+research-portal = "research_portal.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ahb-sjsu/atlas-portal"
+Issues = "https://github.com/ahb-sjsu/atlas-portal/issues"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# app.py contains inline HTML/CSS/JS template strings with long lines.
+"src/research_portal/app.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
