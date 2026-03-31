@@ -826,13 +826,23 @@ def discover_pipelines():
             try:
                 with open(jf) as f:
                     r = json.load(f)
+                bl = r.get("baselines", {})
                 pipelines.append({
                     "name": pname,
                     "stages": [{
                         "id": f"result-{ds}",
                         "label": f"F1={r.get('test_f1', 0):.3f}",
                         "status": "complete",
-                        "formula": r.get("formula", "?")[:30],
+                        "formula": r.get("formula", "?")[:40],
+                        "test_f1": r.get("test_f1", 0),
+                        "train_f1": r.get("train_f1", 0),
+                        "N": r.get("N", 0),
+                        "d": r.get("d", 0),
+                        "vs_gb": bl.get("GB", {}).get("dir", "?"),
+                        "gb_sigma": bl.get("GB", {}).get("sigma", 0),
+                        "vs_rf": bl.get("RF", {}).get("dir", "?"),
+                        "rf_sigma": bl.get("RF", {}).get("sigma", 0),
+                        "download": ds,
                     }],
                     "process_count": 0,
                 })
@@ -889,9 +899,26 @@ FLOW_TEMPLATE = """<!DOCTYPE html>
   .header h1 span { color: #63b3ed; font-weight: 600; }
   .header-nav a { color: #63b3ed; text-decoration: none; font-size: 13px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; margin-left: 8px; }
   .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
-  .pipeline-row { background: #1a202c; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #2d3748; }
-  .pipeline-name { font-size: 14px; font-weight: 600; color: #63b3ed; margin-bottom: 10px; }
+  .pipeline-row { border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .pipeline-row.active { background: #1a2035; border: 1px solid #2b6cb0; border-left: 4px solid #63b3ed; }
+  .pipeline-row.completed { background: #1a2c1a; border: 1px solid #276749; border-left: 4px solid #48bb78; }
+  .pipeline-row.failed { background: #2c1a1a; border: 1px solid #c53030; border-left: 4px solid #fc8181; }
+  .pipeline-name { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .pipeline-row.active .pipeline-name { color: #63b3ed; }
+  .pipeline-row.completed .pipeline-name { color: #48bb78; }
+  .pipeline-row.failed .pipeline-name { color: #fc8181; }
   .pipeline-name .count { color: #718096; font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .result-bar { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding: 8px 12px; background: #0f1117; border-radius: 6px; font-size: 12px; }
+  .result-bar .f1 { font-size: 18px; font-weight: 700; }
+  .result-bar .f1.good { color: #48bb78; }
+  .result-bar .f1.ok { color: #ecc94b; }
+  .result-bar .f1.poor { color: #fc8181; }
+  .result-bar .formula { font-family: 'Consolas', monospace; color: #a0aec0; font-size: 11px; }
+  .result-bar .badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .result-bar .badge.win { background: #276749; color: #9ae6b4; }
+  .result-bar .badge.loss { background: #742a2a; color: #feb2b2; }
+  .dl-link { color: #63b3ed; text-decoration: none; font-size: 11px; padding: 2px 8px; border: 1px solid #4a5568; border-radius: 4px; }
+  .dl-link:hover { background: #2d3748; }
   .stages { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
   .stage { padding: 8px 14px; border-radius: 8px; font-size: 12px; display: inline-flex; flex-direction: column; align-items: center; min-width: 80px; }
   .stage .label { font-weight: 600; }
@@ -943,9 +970,13 @@ function stageClass(stage) {
 }
 
 function renderPipeline(p) {
-  let html = '<div class="pipeline-row">';
+  const isActive = p.process_count > 0;
+  const result = p.stages.find(s => s.status === 'complete' && s.test_f1);
+  const rowClass = isActive ? 'active' : (result ? 'completed' : 'completed');
+
+  let html = '<div class="pipeline-row ' + rowClass + '">';
   html += '<div class="pipeline-name">' + p.name;
-  if (p.process_count > 0) html += '<span class="count">' + p.process_count + ' processes</span>';
+  if (isActive) html += '<span class="count">' + p.process_count + ' processes</span>';
   html += '</div>';
   html += '<div class="stages">';
 
@@ -1008,7 +1039,27 @@ function renderPipeline(p) {
     });
   }
 
-  html += '</div></div>';
+  html += '</div>';
+
+  // Result details for completed pipelines
+  if (result && result.test_f1) {
+    const f1 = result.test_f1;
+    const f1Class = f1 > 0.9 ? 'good' : f1 > 0.7 ? 'ok' : 'poor';
+    const beatsGB = result.vs_gb === 'A*>';
+    const badge = beatsGB
+      ? '<span class="badge win">Beats GB ' + result.gb_sigma.toFixed(1) + 'σ</span>'
+      : '<span class="badge loss">GB wins ' + result.gb_sigma.toFixed(1) + 'σ</span>';
+
+    html += '<div class="result-bar">';
+    html += '<span class="f1 ' + f1Class + '">' + f1.toFixed(4) + '</span>';
+    html += badge;
+    html += '<span class="formula">' + (result.formula || '') + '</span>';
+    if (result.N) html += '<span style="color:#718096;font-size:10px">N=' + result.N + ' d=' + result.d + '</span>';
+    if (result.download) html += '<a class="dl-link" href="/api/download/' + result.download + '">↓ JSON</a>';
+    html += '</div>';
+  }
+
+  html += '</div>';
   return html;
 }
 
@@ -1038,6 +1089,20 @@ setInterval(refresh, 5000);
 </body>
 </html>
 """
+
+@app.route("/api/download/<dataset>")
+@auth_required
+def download_result(dataset):
+    """Download a result JSON file."""
+    import re
+    dataset = re.sub(r'[^a-zA-Z0-9_-]', '', dataset)  # sanitize
+    path = f"/home/claude/tensor-3body/result_{dataset}.json"
+    if os.path.exists(path):
+        with open(path) as f:
+            return Response(f.read(), mimetype="application/json",
+                          headers={"Content-Disposition": f"attachment; filename=result_{dataset}.json"})
+    return "Not found", 404
+
 
 @app.route("/flow")
 @auth_required
