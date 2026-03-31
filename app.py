@@ -164,6 +164,9 @@ TEMPLATE = """<!DOCTYPE html>
   .header h1 { font-size: 28px; font-weight: 300; letter-spacing: 2px; }
   .header h1 span { color: #63b3ed; font-weight: 600; }
   .header .subtitle { color: #718096; font-size: 14px; margin-top: 4px; }
+  .header-links { margin-top: 8px; }
+  .header-links a { color: #63b3ed; text-decoration: none; font-size: 13px; margin-right: 20px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; transition: background 0.2s; }
+  .header-links a:hover { background: #2d3748; }
   .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px; }
   .card { background: #1a202c; border-radius: 12px; padding: 20px; border: 1px solid #2d3748; }
@@ -201,6 +204,11 @@ TEMPLATE = """<!DOCTYPE html>
 <div class="header">
   <h1><span>ATLAS</span> Research Portal</h1>
   <div class="subtitle">HP Z840 — 2x Xeon E5-2690 v3 · 2x Quadro GV100 32GB · Theory Radar · ARC-AGI-2</div>
+  <div class="header-links">
+    <a href="http://100.68.134.21:19999" target="_blank">Netdata Monitoring</a>
+    <a href="https://github.com/ahb-sjsu/theory-radar" target="_blank">Theory Radar</a>
+    <a href="https://github.com/ahb-sjsu/atlas-portal" target="_blank">Portal Source</a>
+  </div>
 </div>
 
 <div class="container">
@@ -218,29 +226,6 @@ TEMPLATE = """<!DOCTYPE html>
     <div class="card">
       <h2>System</h2>
       <div id="system-info">Loading...</div>
-    </div>
-  </div>
-
-  <!-- Netdata Live Charts -->
-  <div class="card" style="margin-bottom: 24px;">
-    <h2>Detailed System Monitoring <a href="http://100.68.134.21:19999" style="color:#63b3ed; font-size:11px; text-transform:none; letter-spacing:0;">(full Netdata dashboard →)</a></h2>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-      <iframe src="http://100.68.134.21:19999/api/v1/badge.svg?chart=system.cpu&dimensions=user,system&after=-600&label=CPU%20Usage&units=%25&value_color=%23e2e8f0&label_color=%23718096&chart_color=%232d3748"
-              style="border:none; width:100%; height:30px;" loading="lazy"></iframe>
-      <iframe src="http://100.68.134.21:19999/api/v1/badge.svg?chart=sensors.temp_thermal_zone0_thermal_thermal_zone0&after=-600&label=CPU%20Temp&units=°C&value_color=%23e2e8f0&label_color=%23718096"
-              style="border:none; width:100%; height:30px;" loading="lazy"></iframe>
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;">
-      <iframe src="http://100.68.134.21:19999/#;theme=slate;help=false;chartHeight=180;after=-600;chart=system.cpu"
-              style="border:none; width:100%; height:220px; border-radius:8px;" loading="lazy"></iframe>
-      <iframe src="http://100.68.134.21:19999/#;theme=slate;help=false;chartHeight=180;after=-600;chart=system.ram"
-              style="border:none; width:100%; height:220px; border-radius:8px;" loading="lazy"></iframe>
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
-      <iframe src="http://100.68.134.21:19999/#;theme=slate;help=false;chartHeight=180;after=-600;chart=nvidia_smi.gpu0_gpu_utilization"
-              style="border:none; width:100%; height:220px; border-radius:8px;" loading="lazy"></iframe>
-      <iframe src="http://100.68.134.21:19999/#;theme=slate;help=false;chartHeight=180;after=-600;chart=nvidia_smi.gpu1_gpu_utilization"
-              style="border:none; width:100%; height:220px; border-radius:8px;" loading="lazy"></iframe>
     </div>
   </div>
 
