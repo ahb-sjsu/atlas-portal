@@ -13,6 +13,10 @@
 
 <p align="center">Zero-config research workstation dashboard with automatic pipeline discovery.</p>
 
+<p align="center">
+  <img src="articles/research-portal-cover.png" width="800" alt="research-portal screenshot showing Dashboard, Resource Map, and Pipeline Flow">
+</p>
+
 Drop it on any Linux research machine and instantly get live GPU/CPU monitoring, running pipeline detection, and a resource map -- no configuration needed.
 
 ## Installation
