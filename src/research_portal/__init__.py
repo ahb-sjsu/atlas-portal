@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from flask import Flask
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __all__ = ["__version__", "create_app"]
 
 

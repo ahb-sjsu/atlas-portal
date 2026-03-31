@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "research-portal"
-version = "0.1.1"
+version = "0.1.2"
 description = "Zero-config research workstation dashboard with automatic pipeline discovery"
 readme = "README.md"
 license = "MIT"

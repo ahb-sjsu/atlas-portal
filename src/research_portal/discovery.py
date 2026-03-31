@@ -13,6 +13,8 @@ import platform
 import re
 import shutil
 import subprocess
+import threading
+import time
 
 # ---------------------------------------------------------------------------
 # Hardware / OS discovery
@@ -508,3 +510,67 @@ def _detect_stage_from_log(log_path: str) -> str:
         return "running|0"
     except Exception:
         return "unknown|0"
+
+
+# ---------------------------------------------------------------------------
+# Pipeline history -- remembers completed pipelines across polls
+# ---------------------------------------------------------------------------
+
+_pipeline_lock = threading.Lock()
+_pipeline_history: dict[str, dict] = {}  # name -> completed pipeline record
+_MAX_HISTORY = 50
+
+
+def discover_pipelines_with_history() -> list[dict]:
+    """Like discover_pipelines() but remembers pipelines that have finished.
+
+    Active pipelines are returned with ``process_count > 0``.
+    Completed pipelines (previously seen, now gone) are returned with
+    ``process_count = 0`` and ``status = "completed"``.
+    """
+    active = discover_pipelines()
+    active_names = {p["name"] for p in active}
+    now = time.time()
+
+    with _pipeline_lock:
+        # Mark previously-active pipelines that are no longer running
+        for name in list(_pipeline_history):
+            rec = _pipeline_history[name]
+            if name in active_names and rec.get("status") == "completed":
+                # Re-appeared -- remove from completed history
+                del _pipeline_history[name]
+
+        # Track currently active ones so we know when they disappear
+        for p in active:
+            _pipeline_history[p["name"]] = {
+                "last_seen": now,
+                "status": "active",
+                "pipeline": p,
+            }
+
+        # Detect newly completed: was active last poll, gone now
+        for name, rec in list(_pipeline_history.items()):
+            if rec["status"] == "active" and name not in active_names:
+                rec["status"] = "completed"
+                rec["completed_at"] = now
+                # Freeze last-known stages as completed
+                for stage in rec["pipeline"]["stages"]:
+                    stage["status"] = "complete"
+                rec["pipeline"]["process_count"] = 0
+
+        # Build completed list (most recent first), cap at _MAX_HISTORY
+        completed = []
+        for _name, rec in sorted(
+            _pipeline_history.items(),
+            key=lambda kv: kv[1].get("completed_at", 0),
+            reverse=True,
+        ):
+            if rec["status"] == "completed":
+                elapsed = int(now - rec.get("completed_at", now))
+                p = rec["pipeline"].copy()
+                p["completed_ago_s"] = elapsed
+                completed.append(p)
+
+        completed = completed[:_MAX_HISTORY]
+
+    return active + completed

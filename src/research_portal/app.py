@@ -23,7 +23,7 @@ from datetime import datetime
 from flask import Flask, Response, jsonify, render_template_string, request
 
 from research_portal.discovery import (
-    discover_pipelines,
+    discover_pipelines_with_history,
     get_cpu_temps,
     get_disk,
     get_gpu_info,
@@ -127,7 +127,7 @@ def build_app(*, no_auth: bool = False) -> Flask:
     @app.route("/api/pipelines")
     @auth_required
     def api_pipelines():  # type: ignore[no-untyped-def]
-        return jsonify(discover_pipelines())
+        return jsonify(discover_pipelines_with_history())
 
     @app.route("/api/system-info")
     @auth_required
@@ -609,6 +609,14 @@ function stageClass(stage) {
   return 'unknown';
 }
 
+function fmtElapsed(s) {
+  if (!s && s !== 0) return '';
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.round(s/60) + 'm ago';
+  if (s < 86400) return Math.round(s/3600) + 'h ago';
+  return Math.round(s/86400) + 'd ago';
+}
+
 function renderPipeline(p) {
   const isActive = p.process_count > 0;
   const rowClass = isActive ? 'active' : 'completed';
@@ -616,6 +624,7 @@ function renderPipeline(p) {
   let html = '<div class="pipeline-row ' + rowClass + '">';
   html += '<div class="pipeline-name">' + p.name;
   if (isActive) html += '<span class="count">' + p.process_count + ' processes</span>';
+  if (!isActive && p.completed_ago_s != null) html += '<span class="count">' + fmtElapsed(p.completed_ago_s) + '</span>';
   html += '</div>';
   html += '<div class="stages">';
 
