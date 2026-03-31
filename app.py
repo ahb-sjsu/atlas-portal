@@ -258,6 +258,7 @@ TEMPLATE = """<!DOCTYPE html>
   <div class="subtitle">HP Z840 — 2x Xeon E5-2690 v3 · 2x Quadro GV100 32GB · Theory Radar · ARC-AGI-2</div>
   <div class="header-links">
     <a href="/map">Resource Map</a>
+    <a href="/flow">Pipeline Flow</a>
     <a href="http://100.68.134.21:19999" target="_blank">Netdata</a>
     <a href="https://github.com/ahb-sjsu/theory-radar" target="_blank">Theory Radar</a>
     <a href="https://github.com/ahb-sjsu/atlas-portal" target="_blank">Source</a>
@@ -625,6 +626,368 @@ setInterval(refresh, 5000);
 </body>
 </html>
 """
+
+def discover_pipelines():
+    """Auto-discover running pipelines by scanning processes, files, and logs.
+
+    Returns a list of pipeline objects, each with stages and edges.
+    Works for ANY pipeline — not hardcoded to Theory Radar.
+    """
+    pipelines = []
+
+    # 1. Discover tmux sessions as pipeline containers
+    try:
+        out = subprocess.check_output(
+            ["tmux", "list-sessions", "-F", "#{session_name}:#{session_activity}"],
+            text=True, timeout=5
+        )
+        sessions = {}
+        for line in out.strip().split("\n"):
+            if ":" in line:
+                name, activity = line.split(":", 1)
+                sessions[name] = {"activity": activity}
+    except Exception:
+        sessions = {}
+
+    # 2. Scan processes — build parent-child tree and extract metadata
+    processes = {}
+    try:
+        out = subprocess.check_output(
+            ["ps", "-eo", "pid,ppid,psr,%cpu,%mem,etimes,comm,args", "--no-headers"],
+            text=True, timeout=5
+        )
+        for line in out.strip().split("\n"):
+            parts = line.split(None, 7)
+            if len(parts) >= 8:
+                pid = int(parts[0])
+                processes[pid] = {
+                    "pid": pid,
+                    "ppid": int(parts[1]),
+                    "core": int(parts[2]),
+                    "cpu": float(parts[3]),
+                    "mem": float(parts[4]),
+                    "elapsed": int(parts[5]),
+                    "comm": parts[6],
+                    "args": parts[7],
+                }
+    except Exception:
+        pass
+
+    # 3. Identify pipeline processes (python, llama-cli, etc.)
+    pipeline_procs = {}
+    for pid, p in processes.items():
+        if p["cpu"] < 1:
+            continue
+        args = p["args"]
+
+        # Detect stage from command line
+        stage = None
+        pipeline_name = None
+
+        if "run_one.py" in args:
+            parts = args.split("run_one.py", 1)
+            if len(parts) > 1:
+                ds = parts[1].strip().split()[0] if parts[1].strip() else "?"
+                pipeline_name = f"theory-radar/{ds}"
+                # Detect sub-stage from recent log
+                stage = _detect_stage(ds.lower())
+            else:
+                pipeline_name = "theory-radar"
+                stage = "running"
+
+        elif "run_qwen" in args or "qwen" in args.lower():
+            pipeline_name = "arc-agi-2/qwen"
+            stage = "inference"
+
+        elif "finetune" in args:
+            pipeline_name = "arc-agi-2/training"
+            stage = "training"
+
+        elif "llama-cli" in args or "llama" in p["comm"]:
+            pipeline_name = "glm-5/inference"
+            stage = "inference"
+
+        elif "flask" in args or "app.py" in args:
+            pipeline_name = "atlas-portal"
+            stage = "serving"
+
+        elif "netdata" in p["comm"]:
+            pipeline_name = "monitoring/netdata"
+            stage = "collecting"
+
+        if pipeline_name:
+            if pipeline_name not in pipeline_procs:
+                pipeline_procs[pipeline_name] = []
+            pipeline_procs[pipeline_name].append({
+                "pid": pid,
+                "stage": stage,
+                "cpu": p["cpu"],
+                "mem": p["mem"],
+                "core": p["core"],
+                "elapsed": p["elapsed"],
+            })
+
+    # 4. Build pipeline objects with stages
+    for name, procs in pipeline_procs.items():
+        stages = []
+        for p in procs:
+            stages.append({
+                "id": f"pid-{p['pid']}",
+                "label": p["stage"] or "running",
+                "status": "running",
+                "cpu": p["cpu"],
+                "mem": p["mem"],
+                "core": p["core"],
+                "elapsed": p["elapsed"],
+            })
+
+        # Add completed results as "done" stages
+        if name.startswith("theory-radar/"):
+            ds = name.split("/")[1].lower()
+            result_file = f"/home/claude/tensor-3body/result_{ds}.json"
+            if os.path.exists(result_file):
+                try:
+                    with open(result_file) as f:
+                        r = json.load(f)
+                    stages.append({
+                        "id": f"result-{ds}",
+                        "label": f"F1={r.get('test_f1', 0):.3f}",
+                        "status": "complete",
+                        "formula": r.get("formula", "?")[:30],
+                    })
+                except Exception:
+                    pass
+
+        pipelines.append({
+            "name": name,
+            "stages": stages,
+            "process_count": len(procs),
+        })
+
+    # 5. Add completed-only pipelines (no running process)
+    for jf in glob.glob("/home/claude/tensor-3body/result_*.json"):
+        ds = jf.split("result_")[1].split(".json")[0]
+        pname = f"theory-radar/{ds}"
+        if pname not in pipeline_procs:
+            try:
+                with open(jf) as f:
+                    r = json.load(f)
+                pipelines.append({
+                    "name": pname,
+                    "stages": [{
+                        "id": f"result-{ds}",
+                        "label": f"F1={r.get('test_f1', 0):.3f}",
+                        "status": "complete",
+                        "formula": r.get("formula", "?")[:30],
+                    }],
+                    "process_count": 0,
+                })
+            except Exception:
+                pass
+
+    return sorted(pipelines, key=lambda p: p["name"])
+
+
+def _detect_stage(ds_name):
+    """Detect current stage of a Theory Radar run from its log."""
+    log_path = f"/home/claude/tensor-3body/result_{ds_name}.log"
+    try:
+        with open(log_path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 500))
+            tail = f.read().decode("utf-8", errors="ignore")
+
+        if "Done:" in tail:
+            return "complete"
+        if "autotune" in tail.lower() or "WINNER" in tail:
+            return "autotune"
+        if "train=" in tail and "test=" in tail:
+            # Extract fold progress
+            import re
+            m = re.search(r"(\d+)/(\d+)\s+train", tail)
+            if m:
+                return f"CV {m.group(1)}/{m.group(2)}"
+            return "cv-eval"
+        if "FULL PIPELINE" in tail:
+            return "starting"
+        return "running"
+    except Exception:
+        return "unknown"
+
+
+@app.route("/api/pipelines")
+def api_pipelines():
+    return jsonify(discover_pipelines())
+
+
+FLOW_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Atlas — Live Pipeline Flow</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 16px 24px; border-bottom: 1px solid #2d3748; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 300; letter-spacing: 2px; }
+  .header h1 span { color: #63b3ed; font-weight: 600; }
+  .header-nav a { color: #63b3ed; text-decoration: none; font-size: 13px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; margin-left: 8px; }
+  .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
+  .pipeline-row { background: #1a202c; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #2d3748; }
+  .pipeline-name { font-size: 14px; font-weight: 600; color: #63b3ed; margin-bottom: 10px; }
+  .pipeline-name .count { color: #718096; font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .stages { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .stage { padding: 8px 14px; border-radius: 8px; font-size: 12px; display: inline-flex; flex-direction: column; align-items: center; min-width: 80px; }
+  .stage .label { font-weight: 600; }
+  .stage .detail { font-size: 10px; color: #a0aec0; margin-top: 2px; }
+  .stage.running { background: #1c3a5e; border: 1px solid #2b6cb0; animation: pulse 2s infinite; }
+  .stage.complete { background: #1c3a2a; border: 1px solid #276749; }
+  .stage.autotune { background: #3a2e1c; border: 1px solid #975a16; }
+  .stage.unknown { background: #2d3748; border: 1px solid #4a5568; }
+  .arrow { color: #4a5568; font-size: 18px; }
+  .formula { font-family: 'Consolas', monospace; font-size: 10px; color: #a0aec0; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+  .section-title { font-size: 12px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin: 20px 0 10px; }
+  .summary { display: flex; gap: 24px; margin-bottom: 20px; }
+  .summary-card { background: #1a202c; border-radius: 8px; padding: 12px 20px; border: 1px solid #2d3748; text-align: center; }
+  .summary-card .num { font-size: 28px; font-weight: 600; color: #63b3ed; }
+  .summary-card .lbl { font-size: 11px; color: #718096; margin-top: 4px; }
+  .refresh-note { text-align: center; color: #4a5568; font-size: 10px; padding: 8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>ATLAS</span> Pipeline Flow</h1>
+  <div class="header-nav">
+    <a href="/">Dashboard</a>
+    <a href="/map">Resource Map</a>
+    <a href="/flow">Pipeline Flow</a>
+    <a href="http://100.68.134.21:19999" target="_blank">Netdata</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="summary" id="summary"></div>
+  <div class="section-title">Active Pipelines</div>
+  <div id="active-pipelines"></div>
+  <div class="section-title" style="margin-top: 24px;">Completed</div>
+  <div id="completed-pipelines"></div>
+  <div class="refresh-note">Auto-discovers pipelines from running processes — refreshes every 5s</div>
+</div>
+
+<script>
+function stageClass(stage) {
+  if (!stage) return 'unknown';
+  const s = stage.label || '';
+  if (s === 'complete' || stage.status === 'complete') return 'complete';
+  if (s.includes('autotune') || s === 'autotune') return 'autotune';
+  if (stage.status === 'running') return 'running';
+  return 'unknown';
+}
+
+function renderPipeline(p) {
+  let html = '<div class="pipeline-row">';
+  html += '<div class="pipeline-name">' + p.name;
+  if (p.process_count > 0) html += '<span class="count">' + p.process_count + ' processes</span>';
+  html += '</div>';
+  html += '<div class="stages">';
+
+  // Show pipeline template stages based on name
+  if (p.name.startsWith('theory-radar/')) {
+    const stages = ['autotune', 'project', 'search', 'evaluate'];
+    const currentStage = p.stages.find(s => s.status === 'running');
+    const result = p.stages.find(s => s.status === 'complete');
+
+    stages.forEach((template, i) => {
+      let cls = 'stage unknown';
+      let label = template;
+      let detail = '';
+
+      if (currentStage) {
+        const cl = currentStage.label || '';
+        if (template === 'autotune' && (cl.includes('autotune') || cl === 'starting')) {
+          cls = 'stage autotune';
+          detail = 'searching configs...';
+        } else if (template === 'search' && cl.includes('CV')) {
+          cls = 'stage running';
+          label = cl;
+          detail = 'core ' + currentStage.core + ' | ' + currentStage.cpu + '% CPU';
+        } else if (template === 'evaluate' && result) {
+          cls = 'stage complete';
+          label = result.label;
+          detail = result.formula || '';
+        }
+        // Mark earlier stages as done if we're past them
+        const stageOrder = {'autotune':0, 'project':1, 'search':2, 'evaluate':3};
+        const currentOrder = cl.includes('CV') ? 2 : cl.includes('autotune') ? 0 : cl === 'complete' ? 3 : 1;
+        if (stageOrder[template] < currentOrder) {
+          cls = 'stage complete';
+        }
+      } else if (result) {
+        cls = 'stage complete';
+        if (template === 'evaluate') {
+          label = result.label;
+          detail = result.formula || '';
+        }
+      }
+
+      html += '<div class="' + cls + '">';
+      html += '<span class="label">' + label + '</span>';
+      if (detail) html += '<span class="detail">' + detail + '</span>';
+      html += '</div>';
+      if (i < stages.length - 1) html += '<span class="arrow">→</span>';
+    });
+
+  } else {
+    // Generic pipeline: just show stages
+    p.stages.forEach((s, i) => {
+      const cls = 'stage ' + stageClass(s);
+      html += '<div class="' + cls + '">';
+      html += '<span class="label">' + (s.label || 'running') + '</span>';
+      if (s.cpu) html += '<span class="detail">' + s.cpu + '% CPU</span>';
+      if (s.formula) html += '<span class="detail formula">' + s.formula + '</span>';
+      html += '</div>';
+      if (i < p.stages.length - 1) html += '<span class="arrow">→</span>';
+    });
+  }
+
+  html += '</div></div>';
+  return html;
+}
+
+async function refresh() {
+  try {
+    const pipelines = await (await fetch('/api/pipelines')).json();
+
+    const active = pipelines.filter(p => p.process_count > 0);
+    const completed = pipelines.filter(p => p.process_count === 0);
+
+    document.getElementById('active-pipelines').innerHTML =
+      active.length ? active.map(renderPipeline).join('') : '<div style="color:#4a5568;padding:12px">No active pipelines</div>';
+    document.getElementById('completed-pipelines').innerHTML =
+      completed.length ? completed.map(renderPipeline).join('') : '<div style="color:#4a5568;padding:12px">None yet</div>';
+
+    document.getElementById('summary').innerHTML =
+      '<div class="summary-card"><div class="num">' + active.length + '</div><div class="lbl">Active</div></div>' +
+      '<div class="summary-card"><div class="num">' + completed.length + '</div><div class="lbl">Completed</div></div>' +
+      '<div class="summary-card"><div class="num">' + pipelines.length + '</div><div class="lbl">Total</div></div>';
+
+  } catch(e) { console.error(e); }
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
+"""
+
+@app.route("/flow")
+def flow():
+    return render_template_string(FLOW_TEMPLATE)
+
 
 @app.route("/map")
 def resource_map():
