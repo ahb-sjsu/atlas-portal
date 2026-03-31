@@ -633,7 +633,8 @@ function renderPipeline(p) {
     html += '<div class="' + cls + '">';
     html += '<span class="label">' + (s.label || 'running') + '</span>';
     if (s.gpu != null) html += '<span class="gpu-tag g' + s.gpu + '">GPU ' + s.gpu + '</span>';
-    if (s.cpu) html += '<span class="detail">core ' + (s.core||'?') + ' \u00b7 ' + s.cpu + '% CPU</span>';
+    if (s.detail) html += '<span class="detail">' + s.detail + '</span>';
+    else if (s.cpu) html += '<span class="detail">core ' + (s.core||'?') + ' \u00b7 ' + s.cpu + '% CPU</span>';
     if (s.progress > 0) html += '<div class="progress-fill" style="width:' + s.progress + '%"></div>';
     html += '</div>';
     if (i < p.stages.length - 1) html += '<span class="arrow">\u2192</span>';

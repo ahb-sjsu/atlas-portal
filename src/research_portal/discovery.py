@@ -527,17 +527,22 @@ def discover_pipelines_with_history() -> list[dict]:
     Active pipelines are returned with ``process_count > 0``.
     Completed pipelines (previously seen, now gone) are returned with
     ``process_count = 0`` and ``status = "completed"``.
+
+    Also scans ``PORTAL_RESULTS_DIR`` for ``result_*.json`` files to seed
+    the completed list with jobs that finished before the portal started.
     """
     active = discover_pipelines()
     active_names = {p["name"] for p in active}
     now = time.time()
 
     with _pipeline_lock:
+        # Seed from result files on first call (or when new files appear)
+        _seed_from_result_files(now)
+
         # Mark previously-active pipelines that are no longer running
         for name in list(_pipeline_history):
             rec = _pipeline_history[name]
             if name in active_names and rec.get("status") == "completed":
-                # Re-appeared -- remove from completed history
                 del _pipeline_history[name]
 
         # Track currently active ones so we know when they disappear
@@ -553,7 +558,6 @@ def discover_pipelines_with_history() -> list[dict]:
             if rec["status"] == "active" and name not in active_names:
                 rec["status"] = "completed"
                 rec["completed_at"] = now
-                # Freeze last-known stages as completed
                 for stage in rec["pipeline"]["stages"]:
                     stage["status"] = "complete"
                 rec["pipeline"]["process_count"] = 0
@@ -574,3 +578,82 @@ def discover_pipelines_with_history() -> list[dict]:
         completed = completed[:_MAX_HISTORY]
 
     return active + completed
+
+
+_seeded_files: set[str] = set()
+
+
+def _seed_from_result_files(now: float) -> None:
+    """Scan PORTAL_RESULTS_DIR for result_*.json and seed pipeline history."""
+    results_dir = os.environ.get("PORTAL_RESULTS_DIR", ".")
+    try:
+        entries = os.listdir(results_dir)
+    except OSError:
+        return
+
+    for fname in entries:
+        if not fname.startswith("result_") or not fname.endswith(".json"):
+            continue
+        fpath = os.path.join(results_dir, fname)
+        if fpath in _seeded_files:
+            continue
+        _seeded_files.add(fpath)
+
+        try:
+            mtime = os.path.getmtime(fpath)
+            with open(fpath) as f:
+                data = json.load(f)
+        except Exception:
+            continue
+
+        dataset = data.get("name", fname.removeprefix("result_").removesuffix(".json"))
+        pipeline_name = f"theory-radar/{dataset}"
+
+        # Don't overwrite actively-tracked pipelines
+        if pipeline_name in _pipeline_history:
+            continue
+
+        # Build a rich stage from the result data
+        stage_label = "complete"
+        detail_parts = []
+        if "test_f1" in data:
+            detail_parts.append(f"F1={data['test_f1']:.3f}")
+        if "formula" in data:
+            detail_parts.append(data["formula"])
+
+        # Check if it beat gradient boosting
+        baselines = data.get("baselines", {})
+        gb = baselines.get("GB", {})
+        if gb:
+            sigma = gb.get("sigma", 0)
+            direction = gb.get("dir", "")
+            if "A*>" in direction:
+                detail_parts.append(f"WINS vs GB ({sigma:.1f}σ)")
+            else:
+                detail_parts.append(f"loses to GB ({sigma:.1f}σ)")
+
+        stages = [
+            {
+                "id": f"result-{dataset}",
+                "label": stage_label,
+                "status": "complete",
+                "progress": 100,
+                "cpu": 0,
+                "mem": 0,
+                "core": None,
+                "elapsed": int(now - mtime),
+                "gpu": None,
+                "detail": " | ".join(detail_parts) if detail_parts else None,
+            }
+        ]
+
+        _pipeline_history[pipeline_name] = {
+            "last_seen": mtime,
+            "status": "completed",
+            "completed_at": mtime,
+            "pipeline": {
+                "name": pipeline_name,
+                "stages": stages,
+                "process_count": 0,
+            },
+        }
