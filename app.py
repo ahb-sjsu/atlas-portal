@@ -1058,4 +1058,18 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=False)
+    import ssl
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    cert_path = os.path.join(script_dir, "cert.pem")
+    key_path = os.path.join(script_dir, "key.pem")
+
+    if os.path.exists(cert_path) and os.path.exists(key_path):
+        # HTTPS with self-signed cert
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(cert_path, key_path)
+        print("Starting with HTTPS on port 8443")
+        app.run(host="0.0.0.0", port=8443, ssl_context=context, debug=False)
+    else:
+        # Fallback to HTTP
+        print("No certs found, starting HTTP on port 8080")
+        app.run(host="0.0.0.0", port=8080, debug=False)
