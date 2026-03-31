@@ -297,7 +297,8 @@ def get_raid_status() -> list[dict]:
                 try:
                     mout = subprocess.check_output(
                         ["findmnt", "-n", "-o", "TARGET", f"/dev/{name}"],
-                        text=True, timeout=2,
+                        text=True,
+                        timeout=2,
                     ).strip()
                     if mout:
                         mount = mout
@@ -313,16 +314,18 @@ def get_raid_status() -> list[dict]:
                 except Exception:
                     pass
 
-                arrays.append({
-                    "name": name,
-                    "level": level,
-                    "status": status,
-                    "disk_state": disk_state,
-                    "sync_pct": sync_pct,
-                    "sync_speed": sync_speed,
-                    "mount": mount,
-                    "size_gb": size_gb,
-                })
+                arrays.append(
+                    {
+                        "name": name,
+                        "level": level,
+                        "status": status,
+                        "disk_state": disk_state,
+                        "sync_pct": sync_pct,
+                        "sync_speed": sync_speed,
+                        "mount": mount,
+                        "size_gb": size_gb,
+                    }
+                )
             i += 1
     except OSError:
         pass
@@ -338,10 +341,12 @@ def get_io_stats() -> dict:
                 parts = line.split()
                 if len(parts) >= 14:
                     name = parts[2]
-                    if name.startswith("md") or name.startswith("nvme") or (
-                        name.startswith("sd") and len(name) == 3
+                    if (
+                        name.startswith("md")
+                        or name.startswith("nvme")
+                        or (name.startswith("sd") and len(name) == 3)
                     ):
-                        reads = int(parts[5])   # sectors read
+                        reads = int(parts[5])  # sectors read
                         writes = int(parts[9])  # sectors written
                         io_ms = int(parts[12])  # ms spent doing I/O
                         stats[name] = {
@@ -368,13 +373,15 @@ def get_net_stats() -> list[dict]:
                     continue
                 parts = data.split()
                 if len(parts) >= 16:
-                    interfaces.append({
-                        "name": name,
-                        "rx_mb": round(int(parts[0]) / (1024 * 1024)),
-                        "tx_mb": round(int(parts[8]) / (1024 * 1024)),
-                        "rx_packets": int(parts[1]),
-                        "tx_packets": int(parts[9]),
-                    })
+                    interfaces.append(
+                        {
+                            "name": name,
+                            "rx_mb": round(int(parts[0]) / (1024 * 1024)),
+                            "tx_mb": round(int(parts[8]) / (1024 * 1024)),
+                            "rx_packets": int(parts[1]),
+                            "tx_packets": int(parts[9]),
+                        }
+                    )
     except Exception:
         pass
     return interfaces
