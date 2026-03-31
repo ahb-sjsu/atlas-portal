@@ -738,12 +738,23 @@ def discover_pipelines():
         stage = None
         pipeline_name = None
 
+        # Detect GPU from CUDA_VISIBLE_DEVICES in /proc/pid/environ
+        gpu_id = None
+        try:
+            with open(f"/proc/{pid}/environ", "rb") as ef:
+                env = ef.read().decode("utf-8", errors="ignore")
+                for part in env.split("\0"):
+                    if part.startswith("CUDA_VISIBLE_DEVICES="):
+                        gpu_id = part.split("=")[1]
+                        break
+        except Exception:
+            pass
+
         if "run_one.py" in args:
             parts = args.split("run_one.py", 1)
             if len(parts) > 1:
                 ds = parts[1].strip().split()[0] if parts[1].strip() else "?"
                 pipeline_name = f"theory-radar/{ds}"
-                # Detect sub-stage from recent log
                 stage = _detect_stage(ds.lower())
             else:
                 pipeline_name = "theory-radar"
@@ -751,7 +762,7 @@ def discover_pipelines():
 
         elif "run_qwen" in args or "qwen" in args.lower():
             pipeline_name = "arc-agi-2/qwen"
-            stage = "inference"
+            stage = _detect_qwen_stage()
 
         elif "finetune" in args:
             pipeline_name = "arc-agi-2/training"
@@ -779,20 +790,33 @@ def discover_pipelines():
                 "mem": p["mem"],
                 "core": p["core"],
                 "elapsed": p["elapsed"],
+                "gpu": gpu_id,
             })
 
     # 4. Build pipeline objects with stages
     for name, procs in pipeline_procs.items():
         stages = []
         for p in procs:
+            stage_str = p["stage"] or "running|0"
+            if "|" in stage_str:
+                label, pct = stage_str.rsplit("|", 1)
+                try:
+                    pct = int(pct)
+                except ValueError:
+                    pct = 0
+            else:
+                label, pct = stage_str, 0
+
             stages.append({
                 "id": f"pid-{p['pid']}",
-                "label": p["stage"] or "running",
+                "label": label,
                 "status": "running",
+                "progress": pct,
                 "cpu": p["cpu"],
                 "mem": p["mem"],
                 "core": p["core"],
                 "elapsed": p["elapsed"],
+                "gpu": p.get("gpu"),
             })
 
         # Add completed results as "done" stages
@@ -853,7 +877,8 @@ def discover_pipelines():
 
 
 def _detect_stage(ds_name):
-    """Detect current stage of a Theory Radar run from its log."""
+    """Detect current stage and progress of a Theory Radar run from its log."""
+    import re
     log_path = f"/home/claude/tensor-3body/result_{ds_name}.log"
     try:
         with open(log_path, "rb") as f:
@@ -863,21 +888,59 @@ def _detect_stage(ds_name):
             tail = f.read().decode("utf-8", errors="ignore")
 
         if "Done:" in tail:
-            return "complete"
-        if "autotune" in tail.lower() or "WINNER" in tail:
-            return "autotune"
-        if "train=" in tail and "test=" in tail:
-            # Extract fold progress
-            import re
+            return "complete|100"
+        if "WINNER" in tail and "train=" in tail:
             m = re.search(r"(\d+)/(\d+)\s+train", tail)
             if m:
-                return f"CV {m.group(1)}/{m.group(2)}"
-            return "cv-eval"
+                pct = int(100 * int(m.group(1)) / int(m.group(2)))
+                return f"CV {m.group(1)}/{m.group(2)}|{pct}"
+            return "cv-eval|50"
+        if "autotune" in tail.lower() or "configs" in tail:
+            # Try to detect autotune progress
+            m = re.search(r"\[([^\]]+)\].*F1=", tail)
+            if m:
+                return f"autotune ({m.group(1)})|25"
+            return "autotune|15"
+        if "train=" in tail and "test=" in tail:
+            m = re.search(r"(\d+)/(\d+)\s+train", tail)
+            if m:
+                pct = int(100 * int(m.group(1)) / int(m.group(2)))
+                return f"CV {m.group(1)}/{m.group(2)}|{pct}"
+            return "cv-eval|50"
         if "FULL PIPELINE" in tail:
-            return "starting"
-        return "running"
+            return "starting|5"
+        return "running|0"
     except Exception:
-        return "unknown"
+        return "unknown|0"
+
+
+def _detect_qwen_stage():
+    """Detect Qwen eval progress from its log."""
+    import re
+    try:
+        with open("/home/claude/arc-agi-2/qwen_eval.log", "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 500))
+            tail = f.read().decode("utf-8", errors="ignore")
+
+        if "RESULTS:" in tail:
+            m = re.search(r"(\d+)/(\d+) correct", tail)
+            if m:
+                return f"done: {m.group(1)}/{m.group(2)} correct|100"
+            return "complete|100"
+
+        m = re.search(r"Progress: (\d+)/(\d+) correct=(\d+)", tail)
+        if m:
+            pct = int(100 * int(m.group(1)) / int(m.group(2)))
+            return f"eval {m.group(1)}/{m.group(2)} ({m.group(3)} correct)|{pct}"
+
+        if "Model loaded" in tail:
+            return "model loaded|5"
+
+        return "running|0"
+    except Exception:
+        return "unknown|0"
 
 
 @app.route("/api/pipelines")
@@ -923,10 +986,14 @@ FLOW_TEMPLATE = """<!DOCTYPE html>
   .stage { padding: 8px 14px; border-radius: 8px; font-size: 12px; display: inline-flex; flex-direction: column; align-items: center; min-width: 80px; }
   .stage .label { font-weight: 600; }
   .stage .detail { font-size: 10px; color: #a0aec0; margin-top: 2px; }
-  .stage.running { background: #1c3a5e; border: 1px solid #2b6cb0; animation: pulse 2s infinite; }
+  .stage.running { background: #1c3a5e; border: 1px solid #2b6cb0; animation: pulse 2s infinite; position: relative; overflow: hidden; }
   .stage.complete { background: #1c3a2a; border: 1px solid #276749; }
-  .stage.autotune { background: #3a2e1c; border: 1px solid #975a16; }
+  .stage.autotune { background: #3a2e1c; border: 1px solid #975a16; animation: pulse 3s infinite; position: relative; overflow: hidden; }
   .stage.unknown { background: #2d3748; border: 1px solid #4a5568; }
+  .progress-fill { position: absolute; bottom: 0; left: 0; height: 3px; background: #63b3ed; transition: width 1s; border-radius: 0 0 8px 8px; }
+  .gpu-tag { display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+  .gpu-tag.g0 { background: #2b6cb0; color: #bee3f8; }
+  .gpu-tag.g1 { background: #975a16; color: #fefcbf; }
   .arrow { color: #4a5568; font-size: 18px; }
   .formula { font-family: 'Consolas', monospace; font-size: 10px; color: #a0aec0; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
@@ -999,7 +1066,7 @@ function renderPipeline(p) {
         } else if (template === 'search' && cl.includes('CV')) {
           cls = 'stage running';
           label = cl;
-          detail = 'core ' + currentStage.core + ' | ' + currentStage.cpu + '% CPU';
+          detail = 'core ' + currentStage.core + (currentStage.gpu != null ? ' · GPU ' + currentStage.gpu : '') + ' · ' + currentStage.cpu + '% CPU';
         } else if (template === 'evaluate' && result) {
           cls = 'stage complete';
           label = result.label;
@@ -1027,12 +1094,14 @@ function renderPipeline(p) {
     });
 
   } else {
-    // Generic pipeline: just show stages
+    // Generic pipeline: show stages with GPU + progress
     p.stages.forEach((s, i) => {
       const cls = 'stage ' + stageClass(s);
       html += '<div class="' + cls + '">';
       html += '<span class="label">' + (s.label || 'running') + '</span>';
-      if (s.cpu) html += '<span class="detail">' + s.cpu + '% CPU</span>';
+      if (s.gpu != null) html += '<span class="gpu-tag g' + s.gpu + '">GPU ' + s.gpu + '</span>';
+      if (s.cpu) html += '<span class="detail">core ' + (s.core||'?') + ' · ' + s.cpu + '% CPU</span>';
+      if (s.progress > 0) html += '<div class="progress-fill" style="width:' + s.progress + '%"></div>';
       if (s.formula) html += '<span class="detail formula">' + s.formula + '</span>';
       html += '</div>';
       if (i < p.stages.length - 1) html += '<span class="arrow">→</span>';
