@@ -536,6 +536,12 @@ def discover_pipelines() -> list[dict]:
         except Exception:
             pass
 
+        # Fallback: infer GPU from command-line args (e.g. "script.py Dataset 1")
+        if not gpu_id:
+            gpu_match = re.search(r"\.py\s+\S+\s+(\d+)", args)
+            if gpu_match:
+                gpu_id = gpu_match.group(1)
+
         # Generic Python script detection — include first arg for uniqueness
         py_match = re.search(r"python[23]?\s+(\S+\.py)(?:\s+(.+))?", args)
         if py_match:
