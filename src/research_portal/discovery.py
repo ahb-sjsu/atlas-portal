@@ -3,11 +3,16 @@
 Every function works without hardcoded specs.  Information is read from
 ``/proc``, ``nvidia-smi``, ``sensors``, or equivalent system calls so the
 portal adapts to whatever machine it runs on.
+
+Also provides a TF-IDF document indexer for RAG-powered chat over
+result files and research documents in PORTAL_RESULTS_DIR.
 """
 
 from __future__ import annotations
 
+import glob as globmod
 import json
+import logging
 import os
 import platform
 import re
@@ -15,6 +20,8 @@ import shutil
 import subprocess
 import threading
 import time
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Hardware / OS discovery
@@ -952,3 +959,128 @@ def _seed_from_result_files(now: float) -> None:
                 "process_count": 0,
             },
         }
+
+
+# ---------------------------------------------------------------------------
+# TF-IDF document indexer for RAG chat
+# ---------------------------------------------------------------------------
+
+_index_lock = threading.Lock()
+_tfidf_vectorizer = None
+_tfidf_matrix = None
+_doc_chunks: list[dict] = []  # {"source": filename, "text": chunk_text}
+
+
+def _chunk_text(text: str, chunk_size: int = 800, overlap: int = 200) -> list[str]:
+    """Split *text* into overlapping chunks of approximately *chunk_size* chars."""
+    if len(text) <= chunk_size:
+        return [text] if text.strip() else []
+    chunks: list[str] = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunk = text[start:end]
+        if chunk.strip():
+            chunks.append(chunk)
+        start += chunk_size - overlap
+    return chunks
+
+
+def _load_documents() -> list[dict]:
+    """Read all indexable files from PORTAL_RESULTS_DIR and return chunks."""
+    results_dir = os.environ.get("PORTAL_RESULTS_DIR", ".")
+    docs: list[dict] = []
+
+    # 1. result_*.json files
+    for fpath in globmod.glob(os.path.join(results_dir, "result_*.json")):
+        try:
+            with open(fpath) as f:
+                data = json.load(f)
+            # Flatten the JSON into readable text
+            text = json.dumps(data, indent=2, default=str)
+            fname = os.path.basename(fpath)
+            for chunk in _chunk_text(text):
+                docs.append({"source": fname, "text": chunk})
+        except Exception:
+            logger.debug("Failed to index %s", fpath, exc_info=True)
+
+    # 2. .tex, .md, .py files
+    for ext in ("*.tex", "*.md", "*.py"):
+        for fpath in globmod.glob(os.path.join(results_dir, ext)):
+            try:
+                with open(fpath, encoding="utf-8", errors="ignore") as f:
+                    text = f.read()
+                fname = os.path.basename(fpath)
+                for chunk in _chunk_text(text):
+                    docs.append({"source": fname, "text": chunk})
+            except Exception:
+                logger.debug("Failed to index %s", fpath, exc_info=True)
+
+    return docs
+
+
+def _ensure_index() -> bool:
+    """Build (or reuse) the TF-IDF index.  Returns True if index is usable."""
+    global _tfidf_vectorizer, _tfidf_matrix, _doc_chunks  # noqa: PLW0603
+
+    if _tfidf_matrix is not None:
+        return len(_doc_chunks) > 0
+
+    with _index_lock:
+        # Double-check after acquiring lock
+        if _tfidf_matrix is not None:
+            return len(_doc_chunks) > 0
+
+        _doc_chunks = _load_documents()
+        if not _doc_chunks:
+            logger.info("RAG index: no documents found in PORTAL_RESULTS_DIR")
+            return False
+
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+        except ImportError:
+            logger.warning("scikit-learn not installed -- RAG search disabled")
+            return False
+
+        corpus = [d["text"] for d in _doc_chunks]
+        _tfidf_vectorizer = TfidfVectorizer(
+            stop_words="english",
+            max_features=20000,
+            sublinear_tf=True,
+        )
+        _tfidf_matrix = _tfidf_vectorizer.fit_transform(corpus)
+        logger.info(
+            "RAG index built: %d chunks from %d documents",
+            len(_doc_chunks),
+            len({d["source"] for d in _doc_chunks}),
+        )
+        return True
+
+
+def search_documents(query: str, top_k: int = 5) -> list[dict]:
+    """Return the *top_k* most relevant document chunks for *query*.
+
+    Each result is a dict with ``source`` (filename) and ``text`` (chunk).
+    Returns an empty list if the index is empty or unavailable.
+    """
+    if not _ensure_index():
+        return []
+
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    query_vec = _tfidf_vectorizer.transform([query])  # type: ignore[union-attr]
+    scores = cosine_similarity(query_vec, _tfidf_matrix).flatten()
+
+    # Get top-k indices sorted by score descending
+    top_indices = scores.argsort()[::-1][:top_k]
+    results: list[dict] = []
+    for idx in top_indices:
+        if scores[idx] > 0:
+            results.append(
+                {
+                    "source": _doc_chunks[idx]["source"],
+                    "text": _doc_chunks[idx]["text"],
+                    "score": float(scores[idx]),
+                }
+            )
+    return results

@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import functools
 import hashlib
+import json
+import logging
 import os
 import re
 import secrets
+import urllib.request
 from datetime import datetime
 
 from flask import Flask, Response, jsonify, render_template_string, request
@@ -35,7 +38,10 @@ from research_portal.discovery import (
     get_raid_status,
     get_system_info,
     get_tmux_sessions,
+    search_documents,
 )
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # App factory
@@ -199,6 +205,71 @@ def build_app(*, no_auth: bool = False) -> Flask:
                 )
         return "Not found", 404
 
+    # -- RAG Chat -----------------------------------------------------------
+
+    @app.route("/api/chat", methods=["POST"])
+    @auth_required
+    def api_chat():  # type: ignore[no-untyped-def]
+        body = request.get_json(silent=True) or {}
+        question = (body.get("question") or "").strip()
+        if not question:
+            return jsonify({"error": "question is required"}), 400
+
+        # Retrieve relevant context via TF-IDF
+        hits = search_documents(question, top_k=5)
+        sources = list({h["source"] for h in hits})
+
+        # Build prompt with context
+        context_parts: list[str] = []
+        for h in hits:
+            context_parts.append(f"[{h['source']}]\n{h['text']}")
+        context_block = "\n---\n".join(context_parts)
+
+        if context_block:
+            prompt = (
+                f"You are a research assistant. Use the following context "
+                f"from indexed documents to answer the question. If the context "
+                f"does not contain enough information, say so.\n\n"
+                f"Context:\n{context_block}\n\n"
+                f"Question: {question}\n\nAnswer:"
+            )
+        else:
+            prompt = (
+                f"You are a research assistant. No indexed documents were "
+                f"found for this query. Answer as best you can.\n\n"
+                f"Question: {question}\n\nAnswer:"
+            )
+
+        # Call local llama.cpp server
+        llm_url = os.environ.get("LLM_URL", "http://localhost:8080/completion")
+        payload = json.dumps(
+            {
+                "prompt": prompt,
+                "n_predict": 500,
+                "temperature": 0.3,
+            }
+        ).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                llm_url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                llm_resp = json.loads(resp.read().decode("utf-8"))
+            answer = llm_resp.get("content", "").strip()
+        except Exception as exc:
+            logger.warning("LLM request failed: %s", exc)
+            answer = f"LLM server unavailable ({exc}). Retrieved {len(hits)} document chunks."
+
+        return jsonify({"answer": answer, "sources": sources})
+
+    @app.route("/chat")
+    @auth_required
+    def chat_page():  # type: ignore[no-untyped-def]
+        return render_template_string(_CHAT_TEMPLATE, hostname=hostname, sysinfo=sysinfo)
+
     return app
 
 
@@ -254,6 +325,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <div class="header-links">
       <a href="/map">Resource Map</a>
       <a href="/flow">Pipeline Flow</a>
+      <a href="/chat">Chat</a>
     </div>
   </div>
 </div>
@@ -756,6 +828,176 @@ async function refresh() {
 
 refresh();
 setInterval(refresh, 5000);
+</script>
+</body>
+</html>
+"""
+
+
+_CHAT_TEMPLATE = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ hostname }} -- Research Chat</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Consolas', 'Fira Code', 'Monaco', monospace; background: #0f1117; color: #e2e8f0; font-size: 14px; display: flex; flex-direction: column; height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 12px 24px; border-bottom: 1px solid #2d3748; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .header h1 { font-size: 20px; font-weight: 300; letter-spacing: 2px; }
+  .header h1 span { color: #63b3ed; font-weight: 600; }
+  .header-nav a { color: #63b3ed; text-decoration: none; font-size: 12px; padding: 4px 12px; border: 1px solid #4a5568; border-radius: 6px; margin-left: 8px; }
+  .header-nav a:hover { background: #2d3748; }
+  .chat-container { flex: 1; max-width: 900px; width: 100%; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; overflow: hidden; }
+  .messages { flex: 1; overflow-y: auto; padding: 12px 0; }
+  .message { margin-bottom: 16px; }
+  .message.user .bubble { background: #2b6cb0; border-radius: 12px 12px 4px 12px; padding: 10px 14px; display: inline-block; max-width: 80%; float: right; clear: both; }
+  .message.assistant .bubble { background: #1a202c; border: 1px solid #2d3748; border-radius: 12px 12px 12px 4px; padding: 10px 14px; display: inline-block; max-width: 90%; clear: both; }
+  .message .bubble { white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; }
+  .sources { clear: both; margin-top: 8px; }
+  .sources-label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .source-tag { display: inline-block; font-size: 11px; background: #2d3748; color: #a0aec0; padding: 2px 8px; border-radius: 4px; margin: 2px 4px 2px 0; }
+  .input-row { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid #2d3748; flex-shrink: 0; }
+  .input-row input { flex: 1; background: #1a202c; border: 1px solid #2d3748; border-radius: 8px; padding: 10px 14px; color: #e2e8f0; font-family: inherit; font-size: 14px; outline: none; }
+  .input-row input:focus { border-color: #63b3ed; }
+  .input-row input::placeholder { color: #4a5568; }
+  .input-row button { background: #2b6cb0; color: #e2e8f0; border: none; border-radius: 8px; padding: 10px 20px; font-family: inherit; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+  .input-row button:hover { background: #3182ce; }
+  .input-row button:disabled { background: #2d3748; color: #4a5568; cursor: not-allowed; }
+  .loading { display: inline-block; }
+  .loading::after { content: ''; display: inline-block; width: 12px; height: 12px; border: 2px solid #4a5568; border-top-color: #63b3ed; border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 8px; vertical-align: middle; }
+  .empty-state { text-align: center; color: #4a5568; padding: 60px 20px; }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { margin-top: 8px; font-size: 13px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>{{ hostname }}</span> Research Chat</h1>
+  <div class="header-nav">
+    <a href="/">Dashboard</a>
+    <a href="/map">Resource Map</a>
+    <a href="/flow">Pipeline Flow</a>
+    <a href="/chat">Chat</a>
+  </div>
+</div>
+
+<div class="chat-container">
+  <div class="messages" id="messages">
+    <div class="empty-state" id="empty-state">
+      <div class="icon">?</div>
+      <div>Ask questions about your research results and documents.</div>
+      <p>Uses TF-IDF retrieval over indexed files + local LLM for answers.</p>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <input type="text" id="question-input" placeholder="Ask about your research..." autocomplete="off" />
+    <button id="send-btn" onclick="sendQuestion()">Send</button>
+  </div>
+</div>
+
+<script>
+var messagesEl = document.getElementById('messages');
+var inputEl = document.getElementById('question-input');
+var sendBtn = document.getElementById('send-btn');
+var emptyState = document.getElementById('empty-state');
+
+inputEl.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendQuestion();
+  }
+});
+
+function scrollToBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addMessage(role, text, sources) {
+  if (emptyState) {
+    emptyState.remove();
+    emptyState = null;
+  }
+  var div = document.createElement('div');
+  div.className = 'message ' + role;
+  var bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  div.appendChild(bubble);
+
+  if (sources && sources.length > 0) {
+    var srcDiv = document.createElement('div');
+    srcDiv.className = 'sources';
+    srcDiv.innerHTML = '<div class="sources-label">Sources</div>';
+    sources.forEach(function(s) {
+      var tag = document.createElement('span');
+      tag.className = 'source-tag';
+      tag.textContent = s;
+      srcDiv.appendChild(tag);
+    });
+    div.appendChild(srcDiv);
+  }
+
+  messagesEl.appendChild(div);
+  scrollToBottom();
+  return div;
+}
+
+function addLoading() {
+  if (emptyState) {
+    emptyState.remove();
+    emptyState = null;
+  }
+  var div = document.createElement('div');
+  div.className = 'message assistant';
+  div.id = 'loading-msg';
+  var bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = 'Thinking<span class="loading"></span>';
+  div.appendChild(bubble);
+  messagesEl.appendChild(div);
+  scrollToBottom();
+}
+
+function removeLoading() {
+  var el = document.getElementById('loading-msg');
+  if (el) el.remove();
+}
+
+async function sendQuestion() {
+  var question = inputEl.value.trim();
+  if (!question) return;
+
+  inputEl.value = '';
+  sendBtn.disabled = true;
+  addMessage('user', question);
+  addLoading();
+
+  try {
+    var resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({question: question})
+    });
+    var data = await resp.json();
+    removeLoading();
+    if (data.error) {
+      addMessage('assistant', 'Error: ' + data.error);
+    } else {
+      addMessage('assistant', data.answer, data.sources);
+    }
+  } catch(e) {
+    removeLoading();
+    addMessage('assistant', 'Request failed: ' + e.message);
+  }
+
+  sendBtn.disabled = false;
+  inputEl.focus();
+}
+
+inputEl.focus();
 </script>
 </body>
 </html>
