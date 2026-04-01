@@ -205,6 +205,35 @@ def build_app(*, no_auth: bool = False) -> Flask:
                 )
         return "Not found", 404
 
+    # -- LLM Control -------------------------------------------------------
+
+    @app.route("/api/start-llm", methods=["POST"])
+    @auth_required
+    def api_start_llm():  # type: ignore[no-untyped-def]
+        if request.environ.get("portal_role") != "admin":
+            return jsonify({"status": "Admin access required"}), 403
+        import subprocess
+
+        # Check if already running
+        try:
+            urllib.request.urlopen("http://localhost:8080/health", timeout=2)
+            return jsonify({"status": "running", "msg": "GLM-5 already running"})
+        except Exception:
+            pass
+        # Check GPU memory — need ~50 GB free across GPUs
+        gpus = get_gpu_info()
+        free_mb = sum(g.get("mem_total", 0) - g.get("mem_used", 0) for g in gpus)
+        if free_mb < 50000:
+            return jsonify(
+                {
+                    "status": "busy",
+                    "msg": f"GPU busy ({free_mb // 1024} GB free, need ~50 GB)",
+                }
+            )
+        # Start GLM-5 server in background
+        subprocess.Popen(["tmux", "new-session", "-d", "-s", "glm5", "bash /tmp/glm5_spec.sh"])
+        return jsonify({"status": "starting", "msg": "Loading 170 GB model (3-5 min)"})
+
     # -- RAG Chat -----------------------------------------------------------
 
     @app.route("/api/chat", methods=["POST"])
@@ -890,6 +919,7 @@ _CHAT_TEMPLATE = r"""<!DOCTYPE html>
       <div>Ask questions about your research results and documents.</div>
       <p>Uses TF-IDF retrieval over indexed files + local LLM for answers.</p>
     </div>
+    <div id="llm-status" style="display:none; background:#3a1c1c; border:1px solid #c53030; border-radius:6px; padding:8px 14px; margin:8px; color:#fc8181; font-size:12px;"></div>
   </div>
 
   <div class="input-row">
@@ -903,6 +933,55 @@ var messagesEl = document.getElementById('messages');
 var inputEl = document.getElementById('question-input');
 var sendBtn = document.getElementById('send-btn');
 var emptyState = document.getElementById('empty-state');
+var llmStatus = document.getElementById('llm-status');
+
+// Check LLM availability on load and every 30s
+async function checkLLM() {
+  try {
+    var r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question:'ping'})});
+    var d = await r.json();
+    if (d.answer && d.answer.includes('unavailable')) {
+      var sr = await fetch('/api/status');
+      var st = await sr.json();
+      var gpus = (st.gpus||[]).map(function(g){return 'GPU'+g.index+': '+g.mem_used+'/'+g.mem_total+'MB '+g.util+'%'}).join(' | ');
+      var free = (st.gpus||[]).reduce(function(s,g){return s+(g.mem_total-g.mem_used)},0);
+      var canStart = free > 50000;
+      var btn = canStart
+        ? '<button onclick="startLLM()" style="margin-left:8px;background:#2b6cb0;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">Start GLM-5</button>'
+        : '<button disabled style="margin-left:8px;background:#4a5568;color:#718096;border:none;padding:4px 12px;border-radius:4px;font-size:12px;cursor:not-allowed">GPUs Busy</button>';
+      llmStatus.innerHTML = 'GLM-5 offline | ' + gpus + ' ' + btn;
+      llmStatus.style.display='block'; llmStatus.style.background='#3a1c1c'; llmStatus.style.borderColor='#c53030'; llmStatus.style.color='#fc8181';
+    } else {
+      llmStatus.innerHTML = 'GLM-5 online';
+      llmStatus.style.display='block'; llmStatus.style.background='#1a2c1a'; llmStatus.style.borderColor='#276749'; llmStatus.style.color='#48bb78';
+    }
+  } catch(e) {
+    llmStatus.innerHTML = 'GLM-5 offline';
+    llmStatus.style.display='block'; llmStatus.style.background='#3a1c1c'; llmStatus.style.borderColor='#c53030'; llmStatus.style.color='#fc8181';
+  }
+}
+checkLLM();
+setInterval(checkLLM, 30000);
+
+async function startLLM() {
+  try {
+    var r = await fetch('/api/start-llm', {method:'POST'});
+    var d = await r.json();
+    if (d.status === 'busy') {
+      llmStatus.innerHTML = d.msg + ' <button disabled style="margin-left:8px;background:#4a5568;color:#718096;border:none;padding:4px 12px;border-radius:4px;font-size:12px;cursor:not-allowed">GPUs Busy</button>';
+    } else if (d.status === 'starting') {
+      llmStatus.innerHTML = d.msg;
+      llmStatus.style.background = '#1a2c1a';
+      llmStatus.style.borderColor = '#276749';
+      llmStatus.style.color = '#48bb78';
+      setTimeout(checkLLM, 120000);
+    } else {
+      llmStatus.innerHTML = d.msg || 'OK';
+    }
+  } catch(e) {
+    llmStatus.innerHTML = 'Failed: ' + e;
+  }
+}
 
 inputEl.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
