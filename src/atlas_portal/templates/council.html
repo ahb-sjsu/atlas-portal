@@ -1,17 +1,71 @@
 {% extends "base.html" %}
 {% block title %}Council{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/replay.css') }}">
+{% endblock %}
+
 {% block content %}
 <section class="page-intro">
   <h1>Divine Council</h1>
-  <p class="subtle">Seven-member deliberation — Judge, Advocate, Synthesizer, Ethicist, Historian, Futurist, Pragmatist. Live view and replay of past deliberations.</p>
+  <p class="subtle">Seven-member deliberation. Pick a recent deliberation to replay its timeline, or watch new ones arrive live.</p>
 </section>
 
-<section class="stage-placeholder" aria-label="Council replay — coming in Stage 3">
-  <div class="placeholder-card">
-    <h2>Council Replay · Stage 3</h2>
-    <p>Scrubbable swim-lane timeline of every past deliberation. Each of the seven members gets a lane; click any lane to see their full response. Export trace JSON for debugging.</p>
-    <p class="subtle">The event pipeline backing this view is already live (see the SSE stream). Replay UI lands in the next sprint.</p>
+<section class="council-layout">
+  <aside class="replay-sidebar" aria-label="Recent deliberations">
+    <header>
+      <h2>Recent</h2>
+      <button type="button" class="btn-mini" id="refresh-recent" title="Refresh">↻</button>
+    </header>
+    <ol class="replay-list" id="replay-list" aria-live="polite">
+      <li class="empty">No deliberations yet. Trigger one with Pitch Mode, or wait for real traffic.</li>
+    </ol>
+  </aside>
+
+  <div class="replay-main">
+    <header class="replay-header">
+      <div class="replay-meta">
+        <span class="trace-id" id="replay-trace-id">—</span>
+        <span class="sep">·</span>
+        <span class="query-preview" id="replay-query">Select a deliberation to replay.</span>
+      </div>
+      <div class="replay-controls" role="toolbar" aria-label="Replay controls">
+        <button type="button" class="ctrl" id="replay-play" aria-label="Play / Pause" disabled>▶</button>
+        <label class="speed-picker">
+          <span class="sr-only">Playback speed</span>
+          <select id="replay-speed" disabled>
+            <option value="0.25">0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+        </label>
+        <input type="range" class="scrub" id="replay-scrub" min="0" max="100" value="0" step="0.1" aria-label="Replay scrubber" disabled>
+        <span class="time" id="replay-time">0.0 / 0.0s</span>
+      </div>
+    </header>
+
+    <div class="replay-canvas" id="replay-canvas">
+      <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" class="swim-svg" role="presentation" aria-hidden="true">
+        {# Grid + lane backgrounds rendered by JS; this SVG is a stage. #}
+      </svg>
+      <p class="sr-only" id="replay-summary" aria-live="polite">No deliberation loaded.</p>
+    </div>
+
+    <footer class="replay-footer">
+      <dl class="replay-stats">
+        <div><dt>Verdict</dt><dd id="stat-verdict">—</dd></div>
+        <div><dt>Approve</dt><dd id="stat-approve">—</dd></div>
+        <div><dt>Challenge</dt><dd id="stat-challenge">—</dd></div>
+        <div><dt>Abstain</dt><dd id="stat-abstain">—</dd></div>
+        <div><dt>Latency</dt><dd id="stat-latency">—</dd></div>
+      </dl>
+    </footer>
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/replay.js') }}"></script>
 {% endblock %}

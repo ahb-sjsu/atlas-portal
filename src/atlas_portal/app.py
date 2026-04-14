@@ -32,6 +32,8 @@ from flask import (
 )
 
 from atlas_portal import events_producer
+from atlas_portal.replay import DeliberationRecorder
+from atlas_portal.replay import register_routes as register_replay_routes
 from research_portal.demo_tokens import validate_token
 from research_portal.discovery import (
     get_cpu_temps,
@@ -83,10 +85,16 @@ def build_app(
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config["SECRET_KEY"] = os.environ.get("PORTAL_SECRET", secrets.token_hex(32))
 
+    recorder = DeliberationRecorder(event_buffer)
+    recorder.attach()
+    app.extensions = getattr(app, "extensions", {})  # type: ignore[attr-defined]
+    app.extensions["atlas_replay_recorder"] = recorder
+
     _register_auth(app, no_auth=no_auth)
     _register_pitch_mode(app)
     _register_pages(app)
     _register_api(app, event_buffer)
+    register_replay_routes(app, recorder)
     register_sse_routes(
         app,
         buffer=event_buffer,

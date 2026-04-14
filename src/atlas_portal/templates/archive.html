@@ -4,46 +4,172 @@
 {% block content %}
 <section class="page-intro">
   <h1>Archive</h1>
-  <p class="subtle">Papers, provisional patents, the 11-volume Geometric Series, open-source code.</p>
+  <p class="subtle">Peer-reviewable papers, USPTO filings, the 11-volume Geometric Series, and the code that implements it. Last curated 2026-04.</p>
 </section>
 
-<section class="archive-grid">
-  <article class="archive-card">
-    <h3>Geometric Series</h3>
-    <p class="subtle">11 volumes. A unified geometric theory of ethics, reasoning, AI alignment, economics, medicine, and law.</p>
-    <ul class="tight-list">
-      <li><a href="https://erisml.org/" target="_blank" rel="noopener">Series overview</a></li>
-      <li><a href="https://github.com/ahb-sjsu/erisml-lib" target="_blank" rel="noopener">Geometric Ethics — Vol 3 (published)</a></li>
-      <li><a href="https://github.com/ahb-sjsu/agi-hpc" target="_blank" rel="noopener">Geometric Methods — Vol 1 (this repo)</a></li>
-    </ul>
-  </article>
+<section class="archive-section">
+  <h2>The Geometric Series</h2>
+  <p class="subtle section-lede">One theorem applied to eleven domains — ethics, reasoning, cognition, economics, law, medicine, politics, AI alignment. The mathematical core is stratified-space geometry with bond invariance.</p>
+  <div class="archive-grid volume-grid">
+    <a class="vol-card" href="https://github.com/ahb-sjsu/agi-hpc" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 1</span><span class="vol-title">Geometric Methods</span>
+      <span class="vol-sub">Computational modeling toolkit</span>
+      <span class="vol-status published">Published</span>
+    </a>
+    <a class="vol-card" href="https://github.com/ahb-sjsu/geometric-reasoning" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 2</span><span class="vol-title">Geometric Reasoning</span>
+      <span class="vol-sub">From search to manifolds</span>
+      <span class="vol-status draft">Draft complete</span>
+    </a>
+    <a class="vol-card featured" href="https://github.com/ahb-sjsu/erisml-lib" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 3</span><span class="vol-title">Geometric Ethics</span>
+      <span class="vol-sub">v1.23 · tensor-valued morality</span>
+      <span class="vol-status published">Published</span>
+    </a>
+    <a class="vol-card" href="https://github.com/ahb-sjsu/geometric-economics" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 4</span><span class="vol-title">Geometric Economics</span>
+      <span class="vol-sub">Decision manifolds &amp; equilibria</span>
+      <span class="vol-status draft">Draft</span>
+    </a>
+    <a class="vol-card" href="https://github.com/ahb-sjsu/geometric-law" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 5</span><span class="vol-title">Geometric Law</span>
+      <span class="vol-sub">Gauge-theoretic legal reasoning</span>
+      <span class="vol-status draft">Draft</span>
+    </a>
+    <a class="vol-card" href="https://github.com/ahb-sjsu/geometric-cognition" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 6</span><span class="vol-title">Geometric Cognition</span>
+      <span class="vol-sub">Riemannian models of thought</span>
+      <span class="vol-status draft">Draft</span>
+    </a>
+    <a class="vol-card" href="https://github.com/ahb-sjsu/geometric-communication" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 7</span><span class="vol-title">Geometric Communication</span>
+      <span class="vol-sub">Topology of meaning</span>
+      <span class="vol-status draft">Draft</span>
+    </a>
+    <a class="vol-card" href="https://github.com/ahb-sjsu/geometric-medicine" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 8</span><span class="vol-title">Geometric Medicine</span>
+      <span class="vol-sub">Triage &amp; the ethics of allocation</span>
+      <span class="vol-status draft">Outline</span>
+    </a>
+    <a class="vol-card" href="https://github.com/ahb-sjsu/geometric-education" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 9</span><span class="vol-title">Geometric Education</span>
+      <span class="vol-sub">Topology of understanding</span>
+      <span class="vol-status draft">Outline</span>
+    </a>
+    <a class="vol-card" href="https://github.com/ahb-sjsu/geometric-politics" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 10</span><span class="vol-title">Geometric Politics</span>
+      <span class="vol-sub">Democratic choice topology</span>
+      <span class="vol-status draft">Outline</span>
+    </a>
+    <a class="vol-card featured" href="https://github.com/ahb-sjsu/geometric-ai" target="_blank" rel="noopener">
+      <span class="vol-num">Vol 11</span><span class="vol-title">Geometric AI</span>
+      <span class="vol-sub">Alignment, safety, structure-preserving paths</span>
+      <span class="vol-status draft">Draft</span>
+    </a>
+  </div>
+</section>
 
-  <article class="archive-card">
-    <h3>USPTO Provisional Patents</h3>
-    <p class="subtle">Six filings (December 2025) covering the BIP and SGE hardware.</p>
-    <ul class="tight-list">
-      <li>63/941,563 · Hardware-Accelerated DEME</li>
-      <li>63/945,667 · Stratified Geometric Ethics</li>
-      <li>+ 4 companion filings (invariance verification, tensor multi-agent, attestation, canonicalization circuits)</li>
-    </ul>
-  </article>
+<section class="archive-section">
+  <h2>Working papers</h2>
+  <div class="archive-grid">
+    <article class="archive-card">
+      <h3>BIP Fusion Theory</h3>
+      <p class="subtle">Physics-invariant density control for tokamak plasmas based on the Bond Invariance Principle. v2.0 integrates Stratified Geometric Ethics and the hardware implementation path.</p>
+      <ul class="tight-list">
+        <li><a href="https://erisml.org/applications/BIP_Fusion_Theory_Whitepaper" target="_blank" rel="noopener">Whitepaper (v2.0, April 2026)</a></li>
+      </ul>
+    </article>
 
-  <article class="archive-card">
-    <h3>Working papers</h3>
-    <ul class="tight-list">
-      <li><a href="https://erisml.org/applications/BIP_Fusion_Theory_Whitepaper" target="_blank" rel="noopener">BIP Fusion Theory (v2.0)</a></li>
-      <li><a href="https://erisml.org/I-EIP_Monitor_Whitepaper" target="_blank" rel="noopener">I-EIP Monitor</a></li>
-      <li><a href="https://erisml.org/development/I-EIP_Monitor_Sprint_Plan" target="_blank" rel="noopener">I-EIP Sprint Plan</a></li>
-    </ul>
-  </article>
+    <article class="archive-card">
+      <h3>I-EIP Monitor</h3>
+      <p class="subtle">The Internal Epistemic Invariance Principle — runtime probes on model weights / activations gated by stakeholder EM-DAGs. Applies EIP to the model's inside, not just its I/O.</p>
+      <ul class="tight-list">
+        <li><a href="https://erisml.org/I-EIP_Monitor_Whitepaper" target="_blank" rel="noopener">Whitepaper</a></li>
+        <li><a href="https://erisml.org/development/I-EIP_Monitor_Sprint_Plan" target="_blank" rel="noopener">Sprint plan</a></li>
+      </ul>
+    </article>
 
-  <article class="archive-card">
-    <h3>Code</h3>
-    <ul class="tight-list">
-      <li><a href="https://github.com/ahb-sjsu/erisml-lib" target="_blank" rel="noopener">erisml-lib</a> — ethics framework, I-EIP monitor</li>
-      <li><a href="https://github.com/ahb-sjsu/agi-hpc" target="_blank" rel="noopener">agi-hpc</a> — Atlas runtime, Divine Council</li>
-      <li><a href="https://github.com/ahb-sjsu/atlas-portal" target="_blank" rel="noopener">atlas-portal</a> — this dashboard</li>
-    </ul>
-  </article>
+    <article class="archive-card">
+      <h3>Council Reliability</h3>
+      <p class="subtle">Divine Council hardening: health probes, circuit breakers, fallback routing, three-valued vote outcomes, Ethicist-veto correctness.</p>
+      <ul class="tight-list">
+        <li><a href="https://github.com/ahb-sjsu/agi-hpc/blob/main/docs/architecture/COUNCIL_RELIABILITY_PLAN.md" target="_blank" rel="noopener">Plan</a></li>
+        <li><a href="https://github.com/ahb-sjsu/agi-hpc/blob/main/docs/runbooks/COUNCIL_DEBUGGING.md" target="_blank" rel="noopener">Debugging runbook</a></li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<section class="archive-section">
+  <h2>USPTO provisional patents</h2>
+  <p class="subtle section-lede">Filed December 2025. Six filings covering hardware-accelerated AI ethics + safety.</p>
+  <div class="archive-grid">
+    <article class="archive-card patent">
+      <span class="patent-num">63/941,563</span>
+      <h3>Hardware-Accelerated DEME</h3>
+      <p class="subtle">FPGA system implementing Democratically-Governed Ethical Modules with sub-microsecond veto latency.</p>
+    </article>
+    <article class="archive-card patent">
+      <span class="patent-num">63/945,667</span>
+      <h3>Stratified Geometric Ethics</h3>
+      <p class="subtle">Mathematical framework for verifiable moral reasoning on stratified moral spaces.</p>
+    </article>
+    <article class="archive-card patent">
+      <span class="patent-num">63/— · pending</span>
+      <h3>Hardware-Accelerated Invariance Verification</h3>
+      <p class="subtle">Real-time bond-invariance checking circuit for AI decision surfaces.</p>
+    </article>
+    <article class="archive-card patent">
+      <span class="patent-num">63/— · pending</span>
+      <h3>Tensor-Based Multi-Agent Evaluation</h3>
+      <p class="subtle">Rank-4 tensor formalism for verifiable cross-agent ethical composition.</p>
+    </article>
+    <article class="archive-card patent">
+      <span class="patent-num">63/— · pending</span>
+      <h3>Cryptographic Attestation</h3>
+      <p class="subtle">HMAC-chained attestation protocol for safety-critical AI decisions.</p>
+    </article>
+    <article class="archive-card patent">
+      <span class="patent-num">63/— · pending</span>
+      <h3>Canonicalization Circuits</h3>
+      <p class="subtle">Hardware canonicalization for EIP-compliant input normalization.</p>
+    </article>
+  </div>
+</section>
+
+<section class="archive-section">
+  <h2>Code</h2>
+  <div class="archive-grid">
+    <article class="archive-card">
+      <h3>erisml-lib</h3>
+      <p class="subtle">The ethics framework — DEME, I-EIP monitor, Geometric Ethics book source.</p>
+      <ul class="tight-list">
+        <li><a href="https://github.com/ahb-sjsu/erisml-lib" target="_blank" rel="noopener">github.com/ahb-sjsu/erisml-lib</a></li>
+        <li><a href="https://pypi.org/project/erisml/" target="_blank" rel="noopener">PyPI · erisml</a></li>
+      </ul>
+    </article>
+    <article class="archive-card">
+      <h3>agi-hpc</h3>
+      <p class="subtle">Atlas runtime — Divine Council, Superego/Id, trinity event pipeline.</p>
+      <ul class="tight-list">
+        <li><a href="https://github.com/ahb-sjsu/agi-hpc" target="_blank" rel="noopener">github.com/ahb-sjsu/agi-hpc</a></li>
+      </ul>
+    </article>
+    <article class="archive-card">
+      <h3>atlas-portal</h3>
+      <p class="subtle">This dashboard. Generic research_portal + Atlas-specific atlas_portal extensions.</p>
+      <ul class="tight-list">
+        <li><a href="https://github.com/ahb-sjsu/atlas-portal" target="_blank" rel="noopener">github.com/ahb-sjsu/atlas-portal</a></li>
+        <li><a href="https://pypi.org/project/research-portal/" target="_blank" rel="noopener">PyPI · research-portal</a></li>
+      </ul>
+    </article>
+    <article class="archive-card">
+      <h3>Brand kit</h3>
+      <p class="subtle">Canonical SVG masters for the Atlas sphere, Eris apple, and combined ecosystem mark.</p>
+      <ul class="tight-list">
+        <li><a href="https://erisml.org/brand/" target="_blank" rel="noopener">erisml.org/brand</a></li>
+      </ul>
+    </article>
+  </div>
 </section>
 {% endblock %}
