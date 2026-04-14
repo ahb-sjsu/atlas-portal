@@ -1,34 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Cortex{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trinity.css') }}">
+{% endblock %}
+
 {% block content %}
 <section class="cortex-top">
-  <div class="hero-placeholder" aria-label="Trinity live visualization (forthcoming)">
-    <!--
-      Stage 2B slots the Trinity Live visualization into this container.
-      The data contract is already in place (SSE events on window.AtlasSSE);
-      see docs/design/ATLAS_DASHBOARD_V2_PLAN.md.
-    -->
-    <div class="trinity-static" aria-hidden="false">
-      <div class="node superego">
-        <div class="node-label">Superego</div>
-        <div class="node-model" id="superego-model">Qwen 72B · GPU 0</div>
-        <div class="node-state" data-role="superego">idle</div>
-      </div>
-      <div class="node ego">
-        <div class="node-label">Council</div>
-        <div class="node-model">Gemma 4 · CPU · 7 members</div>
-        <div class="node-state" data-role="council">idle</div>
-      </div>
-      <div class="node id-">
-        <div class="node-label">Id</div>
-        <div class="node-model" id="id-model">Qwen 32B · GPU 1</div>
-        <div class="node-state" data-role="id">idle</div>
-      </div>
-    </div>
-    {% if not pitch_mode %}
-    <p class="hero-hint">Static placeholder. Motion viz arrives in Stage 2B. Every label already updates live from the SSE stream.</p>
-    {% endif %}
+  <div class="hero-wrap">
+    {% include "_trinity_live.html" %}
   </div>
 
   <aside class="recent-queries" aria-label="Recent queries">
@@ -65,20 +45,16 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/trinity.js') }}"></script>
 <script>
-  // Cortex wiring: subscribe to trinity events, populate the feed + node states.
+  // Cortex wiring: populate the recent-queries feed from SSE events.
+  // Node-state rendering + per-member lighting lives in trinity.js.
   (function () {
     const feed = document.getElementById('recent-feed');
-    const nodeStates = {
-      superego: document.querySelector('[data-role="superego"]'),
-      id: document.querySelector('[data-role="id"]'),
-      council: document.querySelector('[data-role="council"]'),
-    };
     const seen = new Map();  // trace_id -> feed element
 
     function ensureRow(traceId, queryPreview) {
       if (seen.has(traceId)) return seen.get(traceId);
-      // Clear "empty" placeholder first time we get a real event
       const empty = feed.querySelector('.empty');
       if (empty) empty.remove();
       const li = document.createElement('li');
@@ -96,25 +72,19 @@
     }
 
     window.AtlasSSE.on('request_start', (ev) => {
-      ensureRow(ev.trace_id, ev.payload.query_preview);
+      ensureRow(ev.trace_id, (ev.payload || {}).query_preview);
     });
-    window.AtlasSSE.on('superego_start', (ev) => { nodeStates.superego.textContent = 'active'; });
-    window.AtlasSSE.on('superego_end',   () => { nodeStates.superego.textContent = 'idle'; });
-    window.AtlasSSE.on('id_start',       () => { nodeStates.id.textContent = 'active'; });
-    window.AtlasSSE.on('id_end',         () => { nodeStates.id.textContent = 'idle'; });
-    window.AtlasSSE.on('council_start',  () => { nodeStates.council.textContent = 'deliberating'; });
-    window.AtlasSSE.on('council_done',   (ev) => {
-      nodeStates.council.textContent = 'idle';
+    window.AtlasSSE.on('council_done', (ev) => {
       const row = seen.get(ev.trace_id);
-      if (row) {
-        const tags = row.querySelector('.tags');
-        const outcome = ev.payload.consensus ? 'consensus' : 'dissent';
-        let cls = 'tag ok';
-        if (ev.payload.ethical_veto) cls = 'tag veto';
-        else if (ev.payload.degraded) cls = 'tag degraded';
-        else if (!ev.payload.consensus) cls = 'tag warn';
-        tags.innerHTML = `<span class="${cls}">${outcome}${ev.payload.ethical_veto ? ' · veto' : ''}${ev.payload.degraded ? ' · degraded' : ''}</span>`;
-      }
+      if (!row) return;
+      const p = ev.payload || {};
+      const tags = row.querySelector('.tags');
+      let cls = 'tag ok';
+      let label = p.consensus ? 'consensus' : 'dissent';
+      if (p.ethical_veto) { cls = 'tag veto'; label = 'ethical veto'; }
+      else if (p.degraded) { cls = 'tag degraded'; label += ' · degraded'; }
+      else if (!p.consensus) { cls = 'tag warn'; }
+      tags.innerHTML = `<span class="${cls}">${label}</span>`;
     });
     window.AtlasSSE.on('heartbeat', () => {
       const el = document.getElementById('heartbeat-ts');

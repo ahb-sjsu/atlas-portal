@@ -1,0 +1,150 @@
+{# Trinity Live — the dashboard's signature visualization.
+   Three nodes (Superego, Council, Id) arranged around a request flow.
+   Council expands into 7 member sub-nodes when active.
+   Every visual has a labeled static equivalent (see role / aria attrs
+   and the .static-summary block below); the viz reads identically
+   with prefers-reduced-motion or a screen reader.
+
+   Data contract:
+     - SSE events on window.AtlasSSE drive state transitions.
+     - trinity.js orchestrates class/attribute updates.
+#}
+<div class="trinity-live"
+     role="figure"
+     aria-roledescription="Live visualization of Atlas cognitive trinity"
+     aria-label="Three minds: Superego (Qwen 72B), Council (Gemma 4 x 7), Id (Qwen 32B). Each with current state.">
+
+  <!-- Static, always-readable text summary for screen readers and
+       reduced-motion users. Visually hidden but in DOM. -->
+  <p class="sr-only" id="trinity-summary" aria-live="polite">
+    Trinity idle. Waiting for request.
+  </p>
+
+  <svg class="trinity-svg"
+       viewBox="0 0 800 440"
+       xmlns="http://www.w3.org/2000/svg"
+       role="presentation"
+       aria-hidden="true">
+
+    <defs>
+      <!-- Node glow -->
+      <radialGradient id="node-glow" cx="50%" cy="50%" r="60%">
+        <stop offset="0%" stop-color="#4a9eff" stop-opacity="0.3"/>
+        <stop offset="70%" stop-color="#4a9eff" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="node-glow-gold" cx="50%" cy="50%" r="60%">
+        <stop offset="0%" stop-color="#f5c147" stop-opacity="0.4"/>
+        <stop offset="70%" stop-color="#f5c147" stop-opacity="0"/>
+      </radialGradient>
+
+      <!-- Flow path gradient -->
+      <linearGradient id="flow-line" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#4a9eff" stop-opacity="0.1"/>
+        <stop offset="50%" stop-color="#4a9eff" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#4a9eff" stop-opacity="0.1"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Background flow lines -->
+    <g class="flow-lines" opacity="0.35">
+      <!-- Input (center top) to Superego (left) -->
+      <path d="M 400 60 Q 300 120 160 220"
+            fill="none" stroke="url(#flow-line)" stroke-width="1.5"
+            class="flow-path flow-input-superego"/>
+      <!-- Input to Id (right) -->
+      <path d="M 400 60 Q 500 120 640 220"
+            fill="none" stroke="url(#flow-line)" stroke-width="1.5"
+            class="flow-path flow-input-id"/>
+      <!-- Superego down to Council -->
+      <path d="M 160 260 Q 260 320 400 340"
+            fill="none" stroke="url(#flow-line)" stroke-width="1.5"
+            class="flow-path flow-superego-council"/>
+      <!-- Id down to Council -->
+      <path d="M 640 260 Q 540 320 400 340"
+            fill="none" stroke="url(#flow-line)" stroke-width="1.5"
+            class="flow-path flow-id-council"/>
+    </g>
+
+    <!-- Superego node -->
+    <g class="t-node" id="node-superego" data-role="superego" transform="translate(160 220)">
+      <circle class="glow" r="90" fill="url(#node-glow)"/>
+      <circle class="ring" r="46" fill="rgba(19,26,43,0.9)" stroke="#4a9eff" stroke-width="2"/>
+      <circle class="pulse" r="46" fill="none" stroke="#4a9eff" stroke-width="2" opacity="0"/>
+      <text class="label" text-anchor="middle" y="-62" fill="#63b3ed" font-size="12" font-weight="600" letter-spacing="2">SUPEREGO</text>
+      <text class="title" text-anchor="middle" y="-4" fill="#e0e6f0" font-size="16" font-weight="600">Spock</text>
+      <text class="subtitle" text-anchor="middle" y="16" fill="#7a8ba8" font-size="10" font-family="Consolas,monospace">Qwen 72B · GPU 0</text>
+      <text class="state" text-anchor="middle" y="72" fill="#e0e6f0" font-size="11" letter-spacing="1">IDLE</text>
+    </g>
+
+    <!-- Id node -->
+    <g class="t-node" id="node-id" data-role="id" transform="translate(640 220)">
+      <circle class="glow" r="90" fill="url(#node-glow)"/>
+      <circle class="ring" r="46" fill="rgba(19,26,43,0.9)" stroke="#4a9eff" stroke-width="2"/>
+      <circle class="pulse" r="46" fill="none" stroke="#4a9eff" stroke-width="2" opacity="0"/>
+      <text class="label" text-anchor="middle" y="-62" fill="#63b3ed" font-size="12" font-weight="600" letter-spacing="2">ID</text>
+      <text class="title" text-anchor="middle" y="-4" fill="#e0e6f0" font-size="16" font-weight="600">Kirk</text>
+      <text class="subtitle" text-anchor="middle" y="16" fill="#7a8ba8" font-size="10" font-family="Consolas,monospace">Qwen 32B · GPU 1</text>
+      <text class="state" text-anchor="middle" y="72" fill="#e0e6f0" font-size="11" letter-spacing="1">IDLE</text>
+    </g>
+
+    <!-- Council node + 7 member satellites -->
+    <g class="t-node t-council" id="node-council" data-role="council" transform="translate(400 340)">
+      <circle class="glow" r="110" fill="url(#node-glow-gold)"/>
+      <!-- Member ring — visible when council active -->
+      <g class="council-members" opacity="0">
+        {# 7 sub-nodes positioned in a circle around the council core.
+           Angles chosen so the ring reads well; no angle collision. #}
+        <g class="m-node" data-member="judge"       transform="rotate(-90) translate(0 -72)"><circle r="10"/><text y="3" text-anchor="middle" font-size="8" fill="#e0e6f0">J</text></g>
+        <g class="m-node" data-member="advocate"    transform="rotate(-38) translate(0 -72)"><circle r="10"/><text y="3" text-anchor="middle" font-size="8" fill="#e0e6f0">A</text></g>
+        <g class="m-node" data-member="synthesizer" transform="rotate(14)  translate(0 -72)"><circle r="10"/><text y="3" text-anchor="middle" font-size="8" fill="#e0e6f0">S</text></g>
+        <g class="m-node" data-member="ethicist"    transform="rotate(66)  translate(0 -72)"><circle r="10"/><text y="3" text-anchor="middle" font-size="8" fill="#e0e6f0">E</text></g>
+        <g class="m-node" data-member="historian"   transform="rotate(118) translate(0 -72)"><circle r="10"/><text y="3" text-anchor="middle" font-size="8" fill="#e0e6f0">H</text></g>
+        <g class="m-node" data-member="futurist"    transform="rotate(170) translate(0 -72)"><circle r="10"/><text y="3" text-anchor="middle" font-size="8" fill="#e0e6f0">F</text></g>
+        <g class="m-node" data-member="pragmatist"  transform="rotate(222) translate(0 -72)"><circle r="10"/><text y="3" text-anchor="middle" font-size="8" fill="#e0e6f0">P</text></g>
+      </g>
+      <!-- Core Council ring -->
+      <circle class="ring" r="50" fill="rgba(19,26,43,0.92)" stroke="#f5c147" stroke-width="2"/>
+      <circle class="pulse" r="50" fill="none" stroke="#f5c147" stroke-width="2" opacity="0"/>
+      <text class="label" text-anchor="middle" y="-68" fill="#f5c147" font-size="12" font-weight="600" letter-spacing="2">COUNCIL</text>
+      <text class="title" text-anchor="middle" y="-4" fill="#e0e6f0" font-size="16" font-weight="600">Ego</text>
+      <text class="subtitle" text-anchor="middle" y="16" fill="#7a8ba8" font-size="10" font-family="Consolas,monospace">Gemma 4 · 7 voices</text>
+      <text class="state" text-anchor="middle" y="78" fill="#e0e6f0" font-size="11" letter-spacing="1">IDLE</text>
+    </g>
+
+    <!-- Input indicator (top) -->
+    <g class="input-indicator" transform="translate(400 40)">
+      <circle r="5" fill="#7a8ba8" opacity="0.6"/>
+      <text y="-10" text-anchor="middle" font-size="9" fill="#7a8ba8" letter-spacing="1.5">INPUT</text>
+    </g>
+
+    <!-- Flowing particles: emitted by JS, styled by CSS -->
+    <g class="particles" id="particles"></g>
+
+    <!-- Verdict banner (shown after council done) -->
+    <g class="verdict-banner" id="verdict-banner" opacity="0" transform="translate(400 400)">
+      <rect x="-100" y="-14" width="200" height="28" rx="14" fill="rgba(19,26,43,0.9)" stroke="currentColor" stroke-width="1"/>
+      <text text-anchor="middle" y="4" font-size="11" font-weight="600" letter-spacing="1.5" fill="currentColor">—</text>
+    </g>
+  </svg>
+
+  <!-- Per-role details strip (keyboard-navigable). Always visible;
+       mirrors the visual state so sighted keyboard users can see what
+       the animation conveyed. -->
+  <div class="trinity-details" aria-label="Per-node state details">
+    <button class="detail-tile" data-role-tile="superego" type="button">
+      <span class="tile-label">Superego · Spock</span>
+      <span class="tile-state" data-role-state="superego">idle</span>
+      <span class="tile-hint">Qwen 72B · GPU 0</span>
+    </button>
+    <button class="detail-tile council" data-role-tile="council" type="button">
+      <span class="tile-label">Council · Ego</span>
+      <span class="tile-state" data-role-state="council">idle</span>
+      <span class="tile-hint">Gemma 4 · 7 voices</span>
+    </button>
+    <button class="detail-tile" data-role-tile="id" type="button">
+      <span class="tile-label">Id · Kirk</span>
+      <span class="tile-state" data-role-state="id">idle</span>
+      <span class="tile-hint">Qwen 32B · GPU 1</span>
+    </button>
+  </div>
+</div>

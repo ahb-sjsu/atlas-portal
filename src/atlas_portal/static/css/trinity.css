@@ -1,0 +1,218 @@
+/* Trinity Live — animations and state classes.
+ *
+ * Every animation is non-load-bearing: state is also conveyed via text
+ * on the per-node label and the trinity-details tile row below the SVG.
+ * Respect prefers-reduced-motion: all transitions zeroed, states still
+ * update via colour/text/aria-live.
+ */
+
+.trinity-live {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 920px;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.trinity-svg {
+  width: 100%;
+  height: auto;
+  max-height: 460px;
+  display: block;
+}
+
+/* ---- Node base ---- */
+.t-node .glow { transition: opacity .5s ease, r .5s ease; opacity: 0; }
+.t-node .ring { transition: stroke .3s ease, stroke-width .3s ease; }
+.t-node .state {
+  transition: fill .3s ease;
+  font-family: 'Consolas','Fira Code',monospace;
+  text-transform: uppercase;
+}
+
+/* ---- Idle: subtle breathing via opacity ---- */
+@keyframes trinity-breath {
+  0%, 100% { opacity: 0.05; }
+  50%      { opacity: 0.25; }
+}
+.t-node .glow {
+  animation: trinity-breath 5s ease-in-out infinite;
+  animation-play-state: paused;
+  opacity: 0.1;
+}
+/* Enabled on real nodes; can be globally disabled via reduced-motion */
+.trinity-svg .t-node .glow { animation-play-state: running; }
+
+/* ---- Active state (receiving / thinking) ---- */
+.t-node[data-state="active"] .ring {
+  stroke-width: 3;
+  stroke: #7cc4ff;
+}
+.t-node[data-state="active"] .glow { opacity: 0.45; }
+.t-node[data-state="active"] .state { fill: #7cc4ff; }
+
+/* Pulse ring: one-shot when entering active */
+@keyframes trinity-pulse {
+  0%   { r: 46; opacity: 0.7; }
+  100% { r: 90; opacity: 0;   }
+}
+.t-node[data-state="active"] .pulse {
+  animation: trinity-pulse 1.4s ease-out;
+  animation-iteration-count: 1;
+}
+
+/* Council-specific: gold ring pulses, different radius */
+.t-council[data-state="active"] .ring { stroke: #ffd77a; }
+.t-council[data-state="active"] .pulse { stroke: #f5c147; }
+@keyframes trinity-pulse-gold {
+  0%   { r: 50; opacity: 0.7; }
+  100% { r: 100; opacity: 0;  }
+}
+.t-council[data-state="active"] .pulse {
+  animation: trinity-pulse-gold 1.4s ease-out;
+  animation-iteration-count: 1;
+}
+
+/* ---- Council members ---- */
+.council-members { transition: opacity .4s ease; }
+.t-council[data-state="active"]  .council-members,
+.t-council[data-state="verdict"] .council-members { opacity: 1; }
+
+.m-node circle {
+  fill: rgba(19,26,43,0.95);
+  stroke: #4a9eff;
+  stroke-width: 1.5;
+  transition: fill .2s ease, stroke .2s ease, stroke-width .2s ease;
+}
+.m-node[data-outcome="approve"]   circle { fill: rgba(74,222,128,0.4);  stroke: #4ade80; }
+.m-node[data-outcome="challenge"] circle { fill: rgba(248,113,113,0.35); stroke: #f87171; }
+.m-node[data-outcome="abstain"]   circle { fill: rgba(122,139,168,0.3);  stroke: #7a8ba8; }
+
+/* Flash when a member votes */
+@keyframes member-flash {
+  0%   { transform: scale(1);    }
+  40%  { transform: scale(1.35); }
+  100% { transform: scale(1);    }
+}
+.m-node[data-just-voted="1"] circle {
+  animation: member-flash .45s ease-out;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+/* ---- Verdict banner ---- */
+.verdict-banner { transition: opacity .5s ease; color: #4ade80; }
+.verdict-banner[data-verdict="consensus"] { color: #4ade80; }
+.verdict-banner[data-verdict="dissent"]   { color: #f59e0b; }
+.verdict-banner[data-verdict="veto"]      { color: #f87171; }
+.verdict-banner[data-verdict="degraded"]  { color: #7a8ba8; }
+
+/* ---- Flow particles ---- */
+.particle {
+  r: 3;
+  fill: #7cc4ff;
+  filter: drop-shadow(0 0 6px #4a9eff);
+}
+.particle.return   { fill: #63b3ed; }
+.particle.synthesis{ fill: #f5c147; filter: drop-shadow(0 0 8px #f5c147); }
+
+@keyframes flow-input-sup  { 0%{offset-distance:0%} 100%{offset-distance:100%} }
+.particle.flow-input-sup {
+  offset-path: path("M 400 60 Q 300 120 160 220");
+  animation: flow-input-sup 0.9s ease-in forwards;
+}
+.particle.flow-input-id {
+  offset-path: path("M 400 60 Q 500 120 640 220");
+  animation: flow-input-sup 0.9s ease-in forwards;
+}
+.particle.flow-sup-council {
+  offset-path: path("M 160 260 Q 260 320 400 340");
+  animation: flow-input-sup 0.9s ease-out forwards;
+}
+.particle.flow-id-council {
+  offset-path: path("M 640 260 Q 540 320 400 340");
+  animation: flow-input-sup 0.9s ease-out forwards;
+}
+
+/* ---- Flow path highlight when in use ---- */
+.flow-path { transition: opacity .3s ease, stroke-width .3s ease; }
+.flow-path.active { opacity: 1; stroke-width: 2.5; }
+
+/* ---- Trinity details tile row ---- */
+.trinity-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.detail-tile {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: border-color .2s ease, background .2s ease;
+}
+.detail-tile:hover,
+.detail-tile:focus-visible {
+  border-color: var(--accent);
+  background: rgba(74,158,255,0.05);
+  outline: none;
+}
+.detail-tile.council:hover,
+.detail-tile.council:focus-visible {
+  border-color: var(--gold);
+  background: rgba(245,193,71,0.05);
+}
+.tile-label {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.detail-tile.council .tile-label { color: var(--gold); }
+.tile-state {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 500;
+}
+.tile-state[data-level="active"]    { color: #7cc4ff; }
+.tile-state[data-level="verdict"]   { color: var(--good); }
+.tile-state[data-level="veto"]      { color: var(--bad); }
+.tile-state[data-level="degraded"]  { color: var(--dim); }
+.tile-hint {
+  font-size: 10px;
+  font-family: 'Consolas','Fira Code',monospace;
+  color: var(--dim);
+}
+
+/* ---- Pitch Mode: bigger, cleaner, no dev details ---- */
+body.pitch .trinity-svg { max-height: 520px; }
+body.pitch .detail-tile .tile-hint { display: none; }
+body.pitch .detail-tile .tile-state { font-size: 17px; }
+body.pitch .tile-label { font-size: 12px; }
+
+/* ---- Reduced motion: everything freezes; state still updates ---- */
+@media (prefers-reduced-motion: reduce) {
+  .trinity-svg .t-node .glow { animation: none !important; }
+  .t-node[data-state="active"] .pulse { animation: none !important; opacity: 0 !important; }
+  .m-node[data-just-voted="1"] circle { animation: none !important; }
+  .particle { display: none !important; }
+}
+
+/* ---- No-JS fallback: static trinity is still meaningful ---- */
+.no-js .particles { display: none; }
