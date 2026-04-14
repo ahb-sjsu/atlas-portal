@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Archive{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Archive</h1>
+  <p class="subtle">Papers, provisional patents, the 11-volume Geometric Series, open-source code.</p>
+</section>
+
+<section class="archive-grid">
+  <article class="archive-card">
+    <h3>Geometric Series</h3>
+    <p class="subtle">11 volumes. A unified geometric theory of ethics, reasoning, AI alignment, economics, medicine, and law.</p>
+    <ul class="tight-list">
+      <li><a href="https://erisml.org/" target="_blank" rel="noopener">Series overview</a></li>
+      <li><a href="https://github.com/ahb-sjsu/erisml-lib" target="_blank" rel="noopener">Geometric Ethics — Vol 3 (published)</a></li>
+      <li><a href="https://github.com/ahb-sjsu/agi-hpc" target="_blank" rel="noopener">Geometric Methods — Vol 1 (this repo)</a></li>
+    </ul>
+  </article>
+
+  <article class="archive-card">
+    <h3>USPTO Provisional Patents</h3>
+    <p class="subtle">Six filings (December 2025) covering the BIP and SGE hardware.</p>
+    <ul class="tight-list">
+      <li>63/941,563 · Hardware-Accelerated DEME</li>
+      <li>63/945,667 · Stratified Geometric Ethics</li>
+      <li>+ 4 companion filings (invariance verification, tensor multi-agent, attestation, canonicalization circuits)</li>
+    </ul>
+  </article>
+
+  <article class="archive-card">
+    <h3>Working papers</h3>
+    <ul class="tight-list">
+      <li><a href="https://erisml.org/applications/BIP_Fusion_Theory_Whitepaper" target="_blank" rel="noopener">BIP Fusion Theory (v2.0)</a></li>
+      <li><a href="https://erisml.org/I-EIP_Monitor_Whitepaper" target="_blank" rel="noopener">I-EIP Monitor</a></li>
+      <li><a href="https://erisml.org/development/I-EIP_Monitor_Sprint_Plan" target="_blank" rel="noopener">I-EIP Sprint Plan</a></li>
+    </ul>
+  </article>
+
+  <article class="archive-card">
+    <h3>Code</h3>
+    <ul class="tight-list">
+      <li><a href="https://github.com/ahb-sjsu/erisml-lib" target="_blank" rel="noopener">erisml-lib</a> — ethics framework, I-EIP monitor</li>
+      <li><a href="https://github.com/ahb-sjsu/agi-hpc" target="_blank" rel="noopener">agi-hpc</a> — Atlas runtime, Divine Council</li>
+      <li><a href="https://github.com/ahb-sjsu/atlas-portal" target="_blank" rel="noopener">atlas-portal</a> — this dashboard</li>
+    </ul>
+  </article>
+</section>
+{% endblock %}

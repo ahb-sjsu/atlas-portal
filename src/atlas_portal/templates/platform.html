@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Platform{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Platform</h1>
+  <p class="subtle">Hardware heartbeat, storage, pipelines. Replaces the old <code>/map</code> + <code>/flow</code>.</p>
+</section>
+
+<section class="metric-grid" aria-label="Platform metrics">
+  <article class="metric-card">
+    <header><h3>CPU Temperature</h3></header>
+    <dl class="metric-list" id="cpu-temps-list"><div><dt>Loading…</dt><dd>—</dd></div></dl>
+  </article>
+
+  <article class="metric-card">
+    <header><h3>GPUs</h3></header>
+    <dl class="metric-list" id="gpu-list"><div><dt>Loading…</dt><dd>—</dd></div></dl>
+  </article>
+
+  <article class="metric-card">
+    <header><h3>Memory</h3></header>
+    <dl class="metric-list" id="memory-list"><div><dt>Loading…</dt><dd>—</dd></div></dl>
+  </article>
+
+  <article class="metric-card">
+    <header><h3>Load average</h3></header>
+    <dl class="metric-list" id="load-list"><div><dt>Loading…</dt><dd>—</dd></div></dl>
+  </article>
+
+  <article class="metric-card wide">
+    <header><h3>Storage arrays</h3></header>
+    <dl class="metric-list" id="raid-list"><div><dt>Loading…</dt><dd>—</dd></div></dl>
+  </article>
+
+  <article class="metric-card wide">
+    <header><h3>Active sessions</h3></header>
+    <ul class="chip-list" id="sessions-list"><li class="empty">Loading…</li></ul>
+  </article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function render(sel, items) {
+    const el = document.getElementById(sel);
+    if (!el) return;
+    if (!items || items.length === 0) {
+      el.innerHTML = '<div><dt>No data</dt><dd>—</dd></div>';
+      return;
+    }
+    el.innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  }
+  function load() {
+    fetch('/api/status').then(r => r.json()).then(data => {
+      render('cpu-temps-list', Object.entries(data.cpu_temps || {}).map(([k, v]) => [k, `${v}°C`]));
+      render('gpu-list', (data.gpu || []).map(g => [
+        g.name || g.model || 'GPU',
+        `${g.utilization || 0}% · ${g.memory_used_mb || 0} / ${g.memory_total_mb || 0} MB · ${g.temp || '?'}°C`,
+      ]));
+      const mem = data.memory || {};
+      render('memory-list', [
+        ['Used', `${mem.used_gb ?? '—'} GB`],
+        ['Total', `${mem.total_gb ?? '—'} GB`],
+        ['Available', `${mem.available_gb ?? '—'} GB`],
+      ]);
+      render('load-list', [
+        ['1 min', (data.load?.load_1m ?? 0).toFixed(2)],
+        ['5 min', (data.load?.load_5m ?? 0).toFixed(2)],
+        ['15 min', (data.load?.load_15m ?? 0).toFixed(2)],
+      ]);
+      const raid = data.raid || [];
+      render('raid-list', raid.length ? raid.map(r => [r.array || r.name || 'array', r.state || r.status || 'unknown']) : [['No arrays', '—']]);
+      const sessions = data.sessions || [];
+      const el = document.getElementById('sessions-list');
+      if (el) {
+        el.innerHTML = sessions.length
+          ? sessions.map(s => `<li>${s.name || s.session || 'tmux'}</li>`).join('')
+          : '<li class="empty">No sessions</li>';
+      }
+    }).catch(() => {});
+  }
+  load();
+  setInterval(load, 10_000);
+})();
+</script>
+{% endblock %}

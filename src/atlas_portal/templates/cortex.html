@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Cortex{% endblock %}
+
+{% block content %}
+<section class="cortex-top">
+  <div class="hero-placeholder" aria-label="Trinity live visualization (forthcoming)">
+    <!--
+      Stage 2B slots the Trinity Live visualization into this container.
+      The data contract is already in place (SSE events on window.AtlasSSE);
+      see docs/design/ATLAS_DASHBOARD_V2_PLAN.md.
+    -->
+    <div class="trinity-static" aria-hidden="false">
+      <div class="node superego">
+        <div class="node-label">Superego</div>
+        <div class="node-model" id="superego-model">Qwen 72B · GPU 0</div>
+        <div class="node-state" data-role="superego">idle</div>
+      </div>
+      <div class="node ego">
+        <div class="node-label">Council</div>
+        <div class="node-model">Gemma 4 · CPU · 7 members</div>
+        <div class="node-state" data-role="council">idle</div>
+      </div>
+      <div class="node id-">
+        <div class="node-label">Id</div>
+        <div class="node-model" id="id-model">Qwen 32B · GPU 1</div>
+        <div class="node-state" data-role="id">idle</div>
+      </div>
+    </div>
+    {% if not pitch_mode %}
+    <p class="hero-hint">Static placeholder. Motion viz arrives in Stage 2B. Every label already updates live from the SSE stream.</p>
+    {% endif %}
+  </div>
+
+  <aside class="recent-queries" aria-label="Recent queries">
+    <h2>Recent queries</h2>
+    <ol class="feed" id="recent-feed">
+      <li class="empty">Waiting for activity…</li>
+    </ol>
+  </aside>
+</section>
+
+<section class="cortex-bottom">
+  <article class="metric-card platform" aria-label="Platform heartbeat">
+    <header><h3>Platform</h3><span class="subtle" id="heartbeat-ts">—</span></header>
+    <dl class="metric-list" id="platform-metrics">
+      <div><dt>Spock · GPU 0</dt><dd data-metric="gpu0">—</dd></div>
+      <div><dt>Kirk · GPU 1</dt><dd data-metric="gpu1">—</dd></div>
+      <div><dt>CPU load</dt><dd data-metric="load">—</dd></div>
+      <div><dt>Memory</dt><dd data-metric="memory">—</dd></div>
+    </dl>
+  </article>
+
+  <article class="metric-card safety" aria-label="Safety telemetry">
+    <header><h3>Safety</h3>{% if not pitch_mode %}<span class="subtle">24 h rolling</span>{% endif %}</header>
+    <dl class="metric-list">
+      <div><dt>Ethicist veto rate</dt><dd data-metric="veto-rate">—</dd></div>
+      <div><dt>Fallback activations</dt><dd data-metric="fallback-rate">—</dd></div>
+      <div><dt>Consensus rate</dt><dd data-metric="consensus-rate">—</dd></div>
+      {% if not pitch_mode %}
+      <div><dt>Signed artifacts (today)</dt><dd data-metric="artifacts-today">—</dd></div>
+      {% endif %}
+    </dl>
+  </article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Cortex wiring: subscribe to trinity events, populate the feed + node states.
+  (function () {
+    const feed = document.getElementById('recent-feed');
+    const nodeStates = {
+      superego: document.querySelector('[data-role="superego"]'),
+      id: document.querySelector('[data-role="id"]'),
+      council: document.querySelector('[data-role="council"]'),
+    };
+    const seen = new Map();  // trace_id -> feed element
+
+    function ensureRow(traceId, queryPreview) {
+      if (seen.has(traceId)) return seen.get(traceId);
+      // Clear "empty" placeholder first time we get a real event
+      const empty = feed.querySelector('.empty');
+      if (empty) empty.remove();
+      const li = document.createElement('li');
+      li.dataset.traceId = traceId;
+      li.innerHTML = `
+        <time class="ts"></time>
+        <span class="preview"></span>
+        <span class="tags"></span>`;
+      li.querySelector('.ts').textContent = new Date().toLocaleTimeString();
+      li.querySelector('.preview').textContent = queryPreview || '(no preview)';
+      feed.prepend(li);
+      while (feed.children.length > 10) feed.lastChild.remove();
+      seen.set(traceId, li);
+      return li;
+    }
+
+    window.AtlasSSE.on('request_start', (ev) => {
+      ensureRow(ev.trace_id, ev.payload.query_preview);
+    });
+    window.AtlasSSE.on('superego_start', (ev) => { nodeStates.superego.textContent = 'active'; });
+    window.AtlasSSE.on('superego_end',   () => { nodeStates.superego.textContent = 'idle'; });
+    window.AtlasSSE.on('id_start',       () => { nodeStates.id.textContent = 'active'; });
+    window.AtlasSSE.on('id_end',         () => { nodeStates.id.textContent = 'idle'; });
+    window.AtlasSSE.on('council_start',  () => { nodeStates.council.textContent = 'deliberating'; });
+    window.AtlasSSE.on('council_done',   (ev) => {
+      nodeStates.council.textContent = 'idle';
+      const row = seen.get(ev.trace_id);
+      if (row) {
+        const tags = row.querySelector('.tags');
+        const outcome = ev.payload.consensus ? 'consensus' : 'dissent';
+        let cls = 'tag ok';
+        if (ev.payload.ethical_veto) cls = 'tag veto';
+        else if (ev.payload.degraded) cls = 'tag degraded';
+        else if (!ev.payload.consensus) cls = 'tag warn';
+        tags.innerHTML = `<span class="${cls}">${outcome}${ev.payload.ethical_veto ? ' · veto' : ''}${ev.payload.degraded ? ' · degraded' : ''}</span>`;
+      }
+    });
+    window.AtlasSSE.on('heartbeat', () => {
+      const el = document.getElementById('heartbeat-ts');
+      if (el) el.textContent = new Date().toLocaleTimeString();
+    });
+
+    // Initial platform pull
+    fetch('/api/status').then(r => r.json()).then(data => {
+      const q = (sel, v) => {
+        const el = document.querySelector(`[data-metric="${sel}"]`);
+        if (el) el.textContent = v;
+      };
+      const gpus = data.gpu || [];
+      q('gpu0', gpus[0] ? `${gpus[0].utilization || 0}% · ${gpus[0].temp || '?'}°C` : 'offline');
+      q('gpu1', gpus[1] ? `${gpus[1].utilization || 0}% · ${gpus[1].temp || '?'}°C` : 'offline');
+      q('load', data.load?.load_1m?.toFixed(2) ?? '—');
+      const mem = data.memory || {};
+      q('memory', mem.used_gb && mem.total_gb ? `${mem.used_gb}/${mem.total_gb} GB` : '—');
+    }).catch(() => {});
+  })();
+</script>
+{% endblock %}

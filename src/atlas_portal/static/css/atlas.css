@@ -1,0 +1,484 @@
+/* Atlas Portal — design tokens and page layout.
+ *
+ * Dark-first, blue + gold accents matching the brand (see
+ * https://erisml.org/brand/). Reduced-motion friendly: no animations
+ * are load-bearing; Pitch Mode changes layout and emphasis rather
+ * than relying on motion.
+ */
+
+:root {
+  --bg:        #0a0e17;
+  --surface:   #131a2b;
+  --surface-2: #1a2340;
+  --border:    #2a3555;
+  --border-2:  #3a4670;
+  --text:      #e0e6f0;
+  --dim:       #7a8ba8;
+  --dim-2:     #5a6b88;
+  --accent:    #4a9eff;
+  --accent-2:  #63b3ed;
+  --gold:      #f5c147;
+  --good:      #4ade80;
+  --warn:      #f59e0b;
+  --bad:       #f87171;
+
+  --radius:    12px;
+  --radius-sm: 8px;
+  --gap:       20px;
+  --gap-sm:    12px;
+
+  --font-body: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Consolas', 'Fira Code', 'Monaco', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { color-scheme: dark; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: var(--accent-2); text-decoration: none; }
+a:hover { color: var(--accent); }
+
+code {
+  font-family: var(--font-mono);
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.subtle { color: var(--dim); }
+.sep { color: var(--dim-2); padding: 0 6px; }
+
+/* ------------------------------------------------------------------
+ * Header
+ * ------------------------------------------------------------------ */
+
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+}
+.brand:hover { color: var(--text); }
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.brand-name {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 3px;
+  background: linear-gradient(135deg, var(--accent), #7cc4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.brand-host {
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.site-nav {
+  display: flex;
+  gap: 4px;
+}
+.site-nav a {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--dim);
+  letter-spacing: .3px;
+}
+.site-nav a:hover {
+  color: var(--text);
+  background: rgba(74, 158, 255, .08);
+}
+.site-nav a.active {
+  color: var(--text);
+  background: rgba(74, 158, 255, .15);
+  border: 1px solid rgba(74, 158, 255, .3);
+}
+
+.site-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--dim);
+  padding: 4px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.status-indicator .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+.status-indicator[data-state="connected"] .dot { background: var(--good); }
+.status-indicator[data-state="connected"] .label::after { content: 'live'; }
+.status-indicator[data-state="disconnected"] .dot { background: var(--bad); }
+.status-indicator[data-state="connecting"] .dot { background: var(--warn); }
+
+.pitch-toggle button {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: .3px;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.pitch-toggle button:hover { background: var(--border); }
+body.pitch .pitch-toggle button {
+  background: rgba(245, 193, 71, .15);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ------------------------------------------------------------------
+ * Main area
+ * ------------------------------------------------------------------ */
+
+.site-main {
+  flex: 1;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.page-intro { margin-bottom: 24px; }
+.page-intro h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -.3px;
+  margin-bottom: 6px;
+}
+.page-intro p { color: var(--dim); font-size: 14px; }
+
+/* ------------------------------------------------------------------
+ * Cortex hero
+ * ------------------------------------------------------------------ */
+
+.cortex-top {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: var(--gap);
+  margin-bottom: var(--gap);
+}
+@media (max-width: 960px) {
+  .cortex-top { grid-template-columns: 1fr; }
+}
+
+.hero-placeholder {
+  background: linear-gradient(160deg, var(--surface) 0%, #0f1628 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px 32px;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+}
+.trinity-static {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 32px;
+  width: 100%;
+  max-width: 760px;
+}
+.node {
+  text-align: center;
+  padding: 20px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.node-label {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: 6px;
+}
+.node-model {
+  font-size: 12px;
+  color: var(--dim);
+  margin-bottom: 12px;
+  font-family: var(--font-mono);
+}
+.node-state {
+  font-size: 13px;
+  color: var(--text);
+  padding: 3px 10px;
+  display: inline-block;
+  background: rgba(74, 158, 255, .1);
+  border-radius: 10px;
+}
+.hero-hint {
+  color: var(--dim-2);
+  font-size: 11px;
+  font-style: italic;
+  max-width: 540px;
+  text-align: center;
+}
+
+/* Pitch mode: hide developer hints, enlarge states. */
+body.pitch .hero-hint { display: none; }
+body.pitch .node-state { font-size: 15px; padding: 5px 14px; }
+body.pitch .node-label { font-size: 13px; }
+
+/* Recent queries */
+.recent-queries {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+}
+.recent-queries h2 {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: 12px;
+}
+.feed {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.feed li {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.4;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.feed li:last-child { border-bottom: none; padding-bottom: 0; }
+.feed li.empty { color: var(--dim); font-style: italic; }
+.feed .ts {
+  color: var(--dim-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-right: 8px;
+}
+.feed .tags { margin-left: 8px; }
+.tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.tag.ok       { background: rgba(74, 222, 128, .15); color: var(--good); }
+.tag.warn     { background: rgba(245, 158, 11, .15); color: var(--warn); }
+.tag.veto     { background: rgba(248, 113, 113, .15); color: var(--bad); }
+.tag.degraded { background: rgba(122, 139, 168, .2);  color: var(--dim); }
+
+/* ------------------------------------------------------------------
+ * Metric cards (Cortex bottom row + Platform grid)
+ * ------------------------------------------------------------------ */
+
+.cortex-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+}
+@media (max-width: 960px) {
+  .cortex-bottom { grid-template-columns: 1fr; }
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--gap);
+}
+
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+}
+.metric-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+}
+.metric-card h3 {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.metric-card .subtle { font-size: 11px; }
+.metric-card.wide { grid-column: span 2; }
+@media (max-width: 960px) {
+  .metric-card.wide { grid-column: span 1; }
+}
+
+.metric-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.metric-list div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.metric-list div:last-child { border-bottom: none; }
+.metric-list dt { color: var(--dim); }
+.metric-list dd {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* Chip lists (sessions) */
+.chip-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip-list li {
+  font-size: 11px;
+  color: var(--dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-family: var(--font-mono);
+}
+.chip-list li.empty { font-style: italic; border: none; background: transparent; }
+
+/* ------------------------------------------------------------------
+ * Stage placeholders (Council Replay, Chat)
+ * ------------------------------------------------------------------ */
+
+.stage-placeholder { display: flex; justify-content: center; padding: 40px 0; }
+.placeholder-card {
+  max-width: 640px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+  text-align: center;
+}
+.placeholder-card h2 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: var(--accent-2);
+}
+.placeholder-card p + p { margin-top: 8px; }
+
+/* ------------------------------------------------------------------
+ * Archive grid
+ * ------------------------------------------------------------------ */
+
+.archive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--gap);
+}
+.archive-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+}
+.archive-card h3 {
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: 8px;
+}
+.archive-card p { font-size: 13px; color: var(--dim); margin-bottom: 10px; }
+.tight-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------
+ * Footer
+ * ------------------------------------------------------------------ */
+
+.site-footer {
+  padding: 14px 28px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Pitch mode hides ops cruft in footer */
+body.pitch .site-footer .foot-left .sep ~ span { display: none; }
+
+/* ------------------------------------------------------------------
+ * Reduced motion — respected universally
+ * ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

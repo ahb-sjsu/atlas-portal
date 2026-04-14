@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Atlas{% endblock %} · {{ hostname }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/atlas.css') }}">
+  <meta name="theme-color" content="#0a0e17">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% if pitch_mode %}pitch{% endif %}">
+
+<header class="site-header" role="banner">
+  <a class="brand" href="{{ url_for('cortex') }}" aria-label="Atlas — home">
+    <svg viewBox="0 0 200 200" class="brand-mark" aria-hidden="true">
+      <circle cx="75" cy="100" r="50" fill="none" stroke="#4a9eff" stroke-width="2"/>
+      <ellipse cx="75" cy="100" rx="50" ry="14" fill="none" stroke="#63b3ed" stroke-width="1" opacity="0.6"/>
+      <ellipse cx="75" cy="100" rx="14" ry="50" fill="none" stroke="#63b3ed" stroke-width="1" opacity="0.6"/>
+      <line x1="125" y1="100" x2="134" y2="90" stroke="#e0e6f0" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.55"/>
+      <circle cx="150" cy="90" r="16" fill="#f5c147"/>
+      <path d="M 148 76 Q 149 70 153 72" fill="none" stroke="#f5c147" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M 156 72 Q 164 68 166 76 Q 160 78 156 72 Z" fill="#4ade80" opacity="0.9"/>
+    </svg>
+    <span class="brand-text">
+      <span class="brand-name">ATLAS</span>
+      <span class="brand-host">{{ hostname }}</span>
+    </span>
+  </a>
+
+  <nav class="site-nav" aria-label="Primary navigation">
+    <a href="{{ url_for('cortex') }}"   class="{% if page == 'cortex'   %}active{% endif %}">Cortex</a>
+    <a href="{{ url_for('council') }}"  class="{% if page == 'council'  %}active{% endif %}">Council</a>
+    <a href="{{ url_for('platform') }}" class="{% if page == 'platform' %}active{% endif %}">Platform</a>
+    <a href="{{ url_for('archive') }}"  class="{% if page == 'archive'  %}active{% endif %}">Archive</a>
+    <a href="{{ url_for('chat') }}"     class="{% if page == 'chat'     %}active{% endif %}">Chat</a>
+  </nav>
+
+  <div class="site-right">
+    <span class="status-indicator" id="sse-status" data-state="disconnected" aria-live="polite">
+      <span class="dot"></span>
+      <span class="label">connecting…</span>
+    </span>
+    <form class="pitch-toggle" method="post" action="{{ url_for('set_pitch', state='off' if pitch_mode else 'on') }}?next={{ request.path }}">
+      <button type="submit" aria-pressed="{{ 'true' if pitch_mode else 'false' }}">
+        {% if pitch_mode %}Exit Pitch Mode{% else %}Pitch Mode{% endif %}
+      </button>
+    </form>
+  </div>
+</header>
+
+<main class="site-main">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  <div class="foot-left">
+    <span>Atlas AI</span>
+    <span class="sep">·</span>
+    <span>{{ sysinfo.cpu_model|default('') }}</span>
+    {% if sysinfo.gpu_models %}
+      <span class="sep">·</span>
+      <span>{{ sysinfo.gpu_models|join(' / ') }}</span>
+    {% endif %}
+  </div>
+  <div class="foot-right">
+    <a href="https://erisml.org/brand/" target="_blank" rel="noopener">Brand</a>
+    <span class="sep">·</span>
+    <a href="{{ url_for('healthz') }}">Health</a>
+  </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/sse.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

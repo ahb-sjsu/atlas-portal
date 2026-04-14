@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Council{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Divine Council</h1>
+  <p class="subtle">Seven-member deliberation — Judge, Advocate, Synthesizer, Ethicist, Historian, Futurist, Pragmatist. Live view and replay of past deliberations.</p>
+</section>
+
+<section class="stage-placeholder" aria-label="Council replay — coming in Stage 3">
+  <div class="placeholder-card">
+    <h2>Council Replay · Stage 3</h2>
+    <p>Scrubbable swim-lane timeline of every past deliberation. Each of the seven members gets a lane; click any lane to see their full response. Export trace JSON for debugging.</p>
+    <p class="subtle">The event pipeline backing this view is already live (see the SSE stream). Replay UI lands in the next sprint.</p>
+  </div>
+</section>
+{% endblock %}
