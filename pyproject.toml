@@ -9,23 +9,43 @@ description = "Zero-config research workstation dashboard with automatic pipelin
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "Andrew H. Bond" }]
-keywords = ["monitoring", "dashboard", "gpu", "research", "workstation", "pipeline"]
+authors = [{ name = "Andrew H. Bond", email = "andrew.bond@sjsu.edu" }]
+keywords = [
+    "monitoring", "dashboard", "gpu", "research", "workstation",
+    "pipeline", "observability", "nvidia", "telemetry", "hpc",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
     "Framework :: Flask",
+    "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
 ]
 dependencies = ["flask>=3.0"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.5.0",
+    "build>=1.0",
+    "twine>=5.0",
+]
 
 [project.scripts]
 research-portal = "research_portal.cli:main"
@@ -40,18 +60,45 @@ packages = ["src/research_portal", "src/atlas_portal"]
 
 [project.urls]
 Homepage = "https://github.com/ahb-sjsu/atlas-portal"
+Documentation = "https://github.com/ahb-sjsu/atlas-portal#readme"
+Repository = "https://github.com/ahb-sjsu/atlas-portal"
 Issues = "https://github.com/ahb-sjsu/atlas-portal/issues"
+Changelog = "https://github.com/ahb-sjsu/atlas-portal/blob/main/CHANGELOG.md"
 
 [tool.ruff]
 target-version = "py310"
 line-length = 99
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "B", "UP"]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "W",    # pycodestyle warnings
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+]
 
 [tool.ruff.lint.per-file-ignores]
 # app.py contains inline HTML/CSS/JS template strings with long lines.
 "src/research_portal/app.py" = ["E501"]
+"src/atlas_portal/app.py" = ["E501"]
+# Tests nest mock.patch context managers for legibility — merging them
+# into one `with (a, b):` is noisier than leaving them stacked.
+"tests/*" = ["SIM117"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-v --strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ["research_portal", "atlas_portal"]
+
+[tool.coverage.report]
+show_missing = true
+# Alpha baseline — actual is ~48% (app.py and cli.py are largely
+# integration-tested via headless runs, not unit-tested). Raise as
+# the source-level test surface grows.
+fail_under = 45

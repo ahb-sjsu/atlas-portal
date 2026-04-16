@@ -504,7 +504,8 @@ def _read_process_log(pid: int) -> dict | None:
     if not log_path:
         try:
             # Get script name from cmdline for matching
-            cmdline = open(f"/proc/{pid}/cmdline", "rb").read().decode("utf-8", "ignore")
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                cmdline = f.read().decode("utf-8", "ignore")
             script_base = ""
             for part in cmdline.split("\0"):
                 if part.endswith(".py"):

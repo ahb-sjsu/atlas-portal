@@ -29,6 +29,7 @@ window so proxies don't close idle connections.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -158,10 +159,8 @@ def register_routes(
     def trinity_events_stream() -> Response:  # type: ignore[misc]
         last_id = parse_last_event_id(request.headers.get("Last-Event-ID"))
         if "last_id" in request.args:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 last_id = max(last_id, int(request.args["last_id"]))
-            except (TypeError, ValueError):
-                pass
 
         def gen() -> Iterator[bytes]:
             try:

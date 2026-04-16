@@ -292,12 +292,14 @@ class TestDiscoverPipelines:
                 )
             raise FileNotFoundError
 
-        with patch(
-            "research_portal.discovery.subprocess.check_output",
-            side_effect=fake_check_output,
+        with (
+            patch(
+                "research_portal.discovery.subprocess.check_output",
+                side_effect=fake_check_output,
+            ),
+            patch("builtins.open", side_effect=OSError),
         ):
-            with patch("builtins.open", side_effect=OSError):
-                result = discover_pipelines()
+            result = discover_pipelines()
 
         names = {p["name"] for p in result}
         assert "train" in names

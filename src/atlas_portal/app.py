@@ -12,6 +12,7 @@ these routes without requiring changes to the backend.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 import secrets
@@ -301,10 +302,8 @@ def _start_heartbeat_thread(buffer: DashboardEventBuffer) -> None:
 
     def _loop() -> None:
         while True:
-            try:
+            with contextlib.suppress(Exception):  # pragma: no cover - defensive
                 events_producer.heartbeat(buffer=buffer)
-            except Exception:  # pragma: no cover - defensive
-                pass
             time.sleep(15.0)
 
     t = threading.Thread(target=_loop, name="atlas-heartbeat", daemon=True)

@@ -23,6 +23,7 @@ Invariants
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import threading
 import time
@@ -147,10 +148,8 @@ class DashboardEventBuffer:
         self._subscribers.append(callback)
 
         def unsubscribe() -> None:
-            try:
+            with contextlib.suppress(ValueError):
                 self._subscribers.remove(callback)
-            except ValueError:
-                pass
 
         return unsubscribe
 
