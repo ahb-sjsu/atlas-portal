@@ -237,6 +237,10 @@ def _register_pages(app: Flask) -> None:
     def archive() -> Any:  # type: ignore[misc]
         return render_template("archive.html", page="archive")
 
+    @app.route("/burst")
+    def burst() -> Any:  # type: ignore[misc]
+        return render_template("burst.html", page="burst")
+
     @app.route("/chat")
     def chat() -> Any:  # type: ignore[misc]
         return render_template("chat.html", page="chat")
@@ -266,6 +270,12 @@ def _register_api(app: Flask, buffer: DashboardEventBuffer) -> None:
                 "latest_event_seq": buffer.latest_seq(),
             }
         )
+
+    @app.route("/api/burst")
+    def api_burst() -> Any:  # type: ignore[misc]
+        from atlas_portal.burst import get_burst_summary
+
+        return jsonify(get_burst_summary())
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Burst{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>NRP Burst</h1>
+  <p class="subtle">NATS leaf bridge + Kubernetes Jobs in <code>ssu-atlas-ai</code></p>
+</section>
+
+{# ── NATS leaf bridge status ─────────────────────────────────── #}
+<section class="metric-grid" aria-label="NATS bridge health">
+  <article class="metric-card">
+    <header><h3>Leaf Bridge</h3></header>
+    <dl class="metric-list" id="leaf-status">
+      <div><dt>Loading…</dt><dd>—</dd></div>
+    </dl>
+  </article>
+
+  <article class="metric-card">
+    <header><h3>NATS Server</h3></header>
+    <dl class="metric-list" id="nats-server">
+      <div><dt>Loading…</dt><dd>—</dd></div>
+    </dl>
+  </article>
+
+  <article class="metric-card">
+    <header><h3>JetStream</h3></header>
+    <dl class="metric-list" id="jetstream">
+      <div><dt>Loading…</dt><dd>—</dd></div>
+    </dl>
+  </article>
+</section>
+
+{# ── Kubernetes Jobs ─────────────────────────────────────────── #}
+<section class="metric-grid" aria-label="Burst Jobs">
+  <article class="metric-card wide">
+    <header><h3>Jobs · <span id="jobs-ns">ssu-atlas-ai</span></h3></header>
+    <table class="burst-table" id="jobs-table" aria-label="Kubernetes Jobs">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>State</th>
+          <th>Active</th>
+          <th>Succeeded</th>
+          <th>Failed</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="jobs-body">
+        <tr><td colspan="6" class="subtle">Loading…</td></tr>
+      </tbody>
+    </table>
+  </article>
+</section>
+
+{# ── Kubernetes Pods ─────────────────────────────────────────── #}
+<section class="metric-grid" aria-label="Burst Pods">
+  <article class="metric-card wide">
+    <header><h3>Pods</h3></header>
+    <table class="burst-table" id="pods-table" aria-label="Kubernetes Pods">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phase</th>
+          <th>Node</th>
+          <th>CPU</th>
+          <th>Memory</th>
+          <th>GPU</th>
+        </tr>
+      </thead>
+      <tbody id="pods-body">
+        <tr><td colspan="6" class="subtle">Loading…</td></tr>
+      </tbody>
+    </table>
+  </article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<style>
+  .burst-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .burst-table th, .burst-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .burst-table th { font-weight: 600; color: var(--text); opacity: 0.7; font-size: 0.8rem; text-transform: uppercase; }
+  .burst-table tbody tr:hover { background: var(--surface); }
+  .state-Running   { color: var(--accent); font-weight: 600; }
+  .state-Succeeded { color: var(--good); }
+  .state-Failed    { color: var(--bad); }
+  .state-Pending   { color: var(--warn); }
+  .leaf-connected  { color: var(--good); font-weight: 600; }
+  .leaf-disconnected { color: var(--bad); font-weight: 600; }
+</style>
+
+<script>
+(function () {
+  function fmt(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+    return (bytes / 1073741824).toFixed(2) + ' GB';
+  }
+
+  function shortTime(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      var now = new Date();
+      var secs = Math.floor((now - d) / 1000);
+      if (secs < 60) return secs + 's ago';
+      if (secs < 3600) return Math.floor(secs / 60) + 'm ago';
+      if (secs < 86400) return Math.floor(secs / 3600) + 'h ago';
+      return Math.floor(secs / 86400) + 'd ago';
+    } catch (e) { return iso; }
+  }
+
+  function renderLeaf(data) {
+    var el = document.getElementById('leaf-status');
+    if (!data || !data.leafs) {
+      el.innerHTML = '<div><dt>Status</dt><dd class="leaf-disconnected">unavailable</dd></div>';
+      return;
+    }
+    var leafs = data.leafs;
+    var connected = leafs.connected || 0;
+    var html = '<div><dt>Connected</dt><dd class="' +
+      (connected > 0 ? 'leaf-connected' : 'leaf-disconnected') + '">' +
+      connected + '</dd></div>';
+    (leafs.leafs || []).forEach(function (l) {
+      html += '<div><dt>RTT</dt><dd>' + (l.rtt || '—') + '</dd></div>';
+      html += '<div><dt>Subs</dt><dd>' + (l.subscriptions || 0) + '</dd></div>';
+      html += '<div><dt>In</dt><dd>' + fmt(l.in_bytes || 0) + ' (' + (l.in_msgs || 0) + ' msgs)</dd></div>';
+      html += '<div><dt>Out</dt><dd>' + fmt(l.out_bytes || 0) + ' (' + (l.out_msgs || 0) + ' msgs)</dd></div>';
+      html += '<div><dt>Compression</dt><dd>' + (l.compression || 'off') + '</dd></div>';
+      html += '<div><dt>Remote IP</dt><dd>' + (l.ip || '—') + '</dd></div>';
+    });
+    el.innerHTML = html;
+  }
+
+  function renderServer(data) {
+    var el = document.getElementById('nats-server');
+    if (!data || !data.server) {
+      el.innerHTML = '<div><dt>Status</dt><dd class="leaf-disconnected">unavailable</dd></div>';
+      return;
+    }
+    var s = data.server;
+    el.innerHTML =
+      '<div><dt>Version</dt><dd>' + (s.version || '—') + '</dd></div>' +
+      '<div><dt>Uptime</dt><dd>' + (s.uptime || '—') + '</dd></div>' +
+      '<div><dt>Connections</dt><dd>' + (s.connections || 0) + '</dd></div>' +
+      '<div><dt>Leaf nodes</dt><dd>' + (s.leafnodes || 0) + '</dd></div>' +
+      '<div><dt>Subscriptions</dt><dd>' + (s.subscriptions || 0) + '</dd></div>' +
+      '<div><dt>In</dt><dd>' + fmt(s.in_bytes || 0) + '</dd></div>' +
+      '<div><dt>Out</dt><dd>' + fmt(s.out_bytes || 0) + '</dd></div>';
+  }
+
+  function renderJetStream(data) {
+    var el = document.getElementById('jetstream');
+    if (!data || !data.jetstream) {
+      el.innerHTML = '<div><dt>Status</dt><dd>—</dd></div>';
+      return;
+    }
+    var js = data.jetstream;
+    el.innerHTML =
+      '<div><dt>Streams</dt><dd>' + (js.streams || 0) + '</dd></div>' +
+      '<div><dt>Messages</dt><dd>' + (js.messages || 0).toLocaleString() + '</dd></div>' +
+      '<div><dt>Storage</dt><dd>' + fmt(js.storage_bytes || 0) + '</dd></div>' +
+      '<div><dt>Memory</dt><dd>' + fmt(js.memory_bytes || 0) + '</dd></div>';
+  }
+
+  function renderJobs(jobs) {
+    var el = document.getElementById('jobs-body');
+    if (!jobs || jobs.length === 0) {
+      el.innerHTML = '<tr><td colspan="6" class="subtle">No jobs in namespace</td></tr>';
+      return;
+    }
+    el.innerHTML = jobs.map(function (j) {
+      return '<tr>' +
+        '<td>' + j.name + '</td>' +
+        '<td class="state-' + j.state + '">' + j.state + '</td>' +
+        '<td>' + j.active + '</td>' +
+        '<td>' + j.succeeded + '</td>' +
+        '<td>' + j.failed + '</td>' +
+        '<td>' + shortTime(j.created) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function renderPods(pods) {
+    var el = document.getElementById('pods-body');
+    if (!pods || pods.length === 0) {
+      el.innerHTML = '<tr><td colspan="6" class="subtle">No pods in namespace</td></tr>';
+      return;
+    }
+    el.innerHTML = pods.map(function (p) {
+      var r = p.resources || {};
+      return '<tr>' +
+        '<td>' + p.name + '</td>' +
+        '<td class="state-' + p.phase + '">' + p.phase + '</td>' +
+        '<td>' + (p.node || '—') + '</td>' +
+        '<td>' + (r.cpu || '—') + '</td>' +
+        '<td>' + (r.memory || '—') + '</td>' +
+        '<td>' + (r.gpu || '—') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function load() {
+    fetch('/api/burst')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        renderLeaf(data.nats);
+        renderServer(data.nats);
+        renderJetStream(data.nats);
+        renderJobs(data.kubernetes ? data.kubernetes.jobs : []);
+        renderPods(data.kubernetes ? data.kubernetes.pods : []);
+        document.getElementById('jobs-ns').textContent =
+          (data.kubernetes ? data.kubernetes.namespace : 'ssu-atlas-ai');
+      })
+      .catch(function () {});
+  }
+
+  load();
+  setInterval(load, 15000);
+})();
+</script>
+{% endblock %}
