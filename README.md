@@ -73,6 +73,50 @@ Default credentials: `atlas` / `atlas2026!research` (override with env vars or C
 
 The portal finds your pipelines automatically. No config files, no agents, no registration. Here's how:
 
+```mermaid
+flowchart TB
+    subgraph DISC[Discovery every 5s]
+      PS[ps read process table]
+      FILT[filter Python bash LLM with 1pct CPU]
+      ENV[proc pid environ CUDA_VISIBLE_DEVICES]
+      LOGS[find log files]
+    end
+
+    subgraph ENRICH[Log enrichment]
+      DS[Dataset name]
+      FP[Fold progress]
+      DP[Depth progress]
+      DONE[Final result]
+    end
+
+    subgraph HIST[History]
+      VANISH[process gone completed]
+      RJ[result json scan]
+    end
+
+    subgraph UI[UI pages]
+      D[Dashboard]
+      M[Map]
+      F[Flow]
+    end
+
+    PS --> FILT --> ENV
+    FILT --> LOGS
+    LOGS --> DS
+    LOGS --> FP
+    LOGS --> DP
+    LOGS --> DONE
+    ENV --> F
+    DS --> F
+    FP --> F
+    DP --> F
+    DONE --> F
+    VANISH --> F
+    RJ --> F
+    FILT --> M
+    FILT --> D
+```
+
 ### 1. Process scanning
 
 Every 5 seconds, the portal reads the system process table (`ps`) and identifies pipeline-like processes: Python scripts, bash scripts, LLM inference servers, and web servers. Any process using >1% CPU with a recognizable command line is picked up.
